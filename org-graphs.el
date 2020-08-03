@@ -33,23 +33,28 @@
 ;; there is a filter that removes all nodes that are more distant than
 ;; a parameter from a root node.
 ;;
-;; Predefined key bindings on the displayed image include:
+;; The image is displayed with a specialized minor mode.
+;; Predefined key bindings on the displayed image in this mode include:
 ;; - e (org-graphs-set-engine) change grahviz engine (dot, circo, ...)
+;; - c (org-graphs-remove-cycles) change whether cycles are removed
 ;; - 1-9 (org-graphs-zoom-by-key) set maximum displayed distance from a root node
 ;; - mouse-1 (org-graphs-handle-click) follow link defined in imap
-;;   file - that is, in href attribute of the node.
+;;   file - that is, in URL attribute of the node. Link is followed by
+;;   org-link-open-from-string, which is the only actual link to org
+;;   mode
 ;; - S-mouse-1 (org-graphs-shift-focus) if the link for node is
 ;;   id:<node name>, extract node name and make it a new
-;;   root. Predefined filter `node-refs' set hrefs in such way.
+;;   root. Predefined filter `node-refs' set hrefs in such way. This
+;;   simplifies things when nodes relate to org mode items, but
+;;   actually does not make much sense otherwise.
 ;;
 ;; Example:
 ;;
 ;; (org-graphs-display-graph "test" nil
 ;;		   (lambda ()
 ;;		     (insert "digraph Gr {A->B B->C C->A A->E->F->G}"))
-;;		   '(2 remove-cycles "N {style=\"filled\",fillcolor=\"lightgreen\"}" node-refs boxize))
-;;
-;;
+;;		   '(2 remove-cycles "N {style=\"filled\",fillcolor=\"lightgreen\"}"
+;;                   node-refs boxize))
 ;;
 ;;; Code:
 
@@ -314,7 +319,6 @@ Return the graph as the string (mainly for debugging purposes).
 (define-key org-graphs-keymap [mouse-1] 'org-graphs-handle-click)
 (define-key org-graphs-keymap [S-mouse-1] 'org-graphs-shift-focus)
 (define-key org-graphs-keymap [S-down-mouse-1] 'org-graphs-shift-focus )
-(define-key org-graphs-keymap "0" 'org-graphs-graph-unscaled)
 (define-key org-graphs-keymap "1" 'org-graphs-zoom-by-key)
 (define-key org-graphs-keymap "2" 'org-graphs-zoom-by-key)
 (define-key org-graphs-keymap "3" 'org-graphs-zoom-by-key)
