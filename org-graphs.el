@@ -4,6 +4,7 @@
 ;;
 ;; Author: Tomas Zellerin <tomas@zellerin.cz>
 ;; Keywords: tools
+;; Package-version: 0.9
 ;;
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -20,19 +21,37 @@
 ;;
 ;;; Commentary:
 ;;
-;; Make dynamic graphs.
+;; Make dynamic graphs: take a graph, apply some filters, and display
+;; it as an image. The graph can be either a function that inserts the
+;; graph (and is called for each redisplay), or a buffer that can
+;; change. An imap file is created in addition to the image so that
+;; clicks on image can be related to individual nodes (TODO: only for
+;; rectangles so far)
+;;
+;; The filters can apply both enhancing operations (add colors, ...)
+;; and more complicated operations coded in gvpr. As a special case
+;; there is a filter that removes all nodes that are more distant than
+;; a parameter from a root node.
+;;
+;; Predefined key bindings on the displayed image include:
+;; - e (org-graphs-set-engine) change grahviz engine (dot, circo, ...)
+;; - 1-9 (org-graphs-zoom-by-key) set maximum displayed distance from a root node
+;; - mouse-1 (org-graphs-handle-click) follow link defined in imap
+;;   file - that is, in href attribute of the node.
+;; - S-mouse-1 (org-graphs-shift-focus) if the link for node is
+;;   id:<node name>, extract node name and make it a new
+;;   root. Predefined filter `node-refs' set hrefs in such way.
 ;;
 ;; Example:
 ;;
-;; (org-graphs-display-graph 3 "A"
+;; (org-graphs-display-graph "test" nil
 ;;		   (lambda ()
-;;		     (insert "digraph G {A->B B->C C->A A->F F->G G->H }")))
+;;		     (insert "digraph Gr {A->B B->C C->A A->E->F->G}"))
+;;		   '(2 remove-cycles "N {style=\"filled\",fillcolor=\"lightgreen\"}" node-refs boxize))
+;;
+;;
 ;;
 ;;; Code:
-;;
-;; removed: directories items
-
-(defvar org-graphs-debug nil)
 
 (defcustom org-graphs-ignore-ids ()
   "IDs that are ignored in graphs.
@@ -42,19 +61,29 @@ contains any of them is removed, so it better is not too vague."
   :group 'org-graph
   :type '(repeat string))
 
-(defcustom org-graphs-filters ()
+(defcustom org-graphs-filters '(3 default remove-cycles)
   "Default filter for org-graph.
 
-This should be a gvpr file."
-  :group 'org-graph
-  :type '(file :must-match t))
+This should be list of filters.
 
-(defcustom org-graphs-remove-cycles ()
-  "Remove cycles from graphs.
-
-When true, runs acyclic on the graph to open any cycles."
+ Each filter can be:
+- a string that denotes either name of a gvpr file to be applied or
+  direct gvpr transformation,
+- an integer that denotes that only nodes with distance from root less
+  or equal to the number should be kept,
+- symbol `remove-cycles' that causes cycles removal,
+- symbol `debug' that does not filter the graph, but displays in the
+  `*messages*' buffer current graph."
   :group 'org-graph
-  :type 'boolean)
+  :type '(repeat
+	  (choice (integer :tag "Maximum distance from root to keep")
+		  (string :tag "gvpr code to apply")
+		  (file :must-match t :tag "gvpr source file to apply")
+		  (const :tag "Remove cycles in graph" remove-cycles)
+		  (symbol :tag "Reference to org-graphs-transformations")
+		  (debug :tag "Dump transformed graph to *messages*"))))
+
+(put 'org-graphs-filters 'permanent-local t)
 
 (defcustom org-graphs-cmd "twopi"
   "Command to create final image."
@@ -63,6 +92,8 @@ When true, runs acyclic on the graph to open any cycles."
 		 (const "dot")
 		 (const "neato")
 		 (const "circo")))
+
+(put 'org-graphs-cmd 'permanent-local t)
 
 (defcustom org-graphs-image-directory (file-truename temporary-file-directory)
   "Command to create final image."
@@ -73,6 +104,21 @@ When true, runs acyclic on the graph to open any cycles."
   "Function that creates a graph.")
 
 (make-variable-buffer-local 'org-graphs-make-graph-fn)
+(put 'org-graphs-filters 'permanent-local t)
+
+(defvar-local org-graphs-root nil
+  "Root node if set")
+
+(defcustom org-graphs-transformations
+  '((boxize . "N {shape=\"box\"}")
+    (default . "BEG_G{overlap=\"false\", fontname=\"Courier\"}
+N[dist<0.5]{style=\"filled\",fillcolor=\"yellow\",fontsize=\"22\"}
+N[dist>1.5]{penwidth=\"0.1\",fontsize=\"12\"}
+N[dist>2.5]{shape=\"none\",fontsize=\"8\"}"))
+  "Named predefined transformations gvdr snippets. The names can be
+  used in the org-graphs-filters to make it more manageable."
+  :group 'org-graphs
+  :type '(alist :key-type symbol :value-type string))
 
 (defun org-graphs-unscale ()
   "Scale the image to 100% zoom."
@@ -95,56 +141,61 @@ When true, runs acyclic on the graph to open any cycles."
 	 (imapfile (concat (file-name-sans-extension buffer-file-name) ".imap"))
 	 (res (org-graphs-get-rects imapfile (car pos) (cdr pos))))
     (when (and res (= 3 (cl-mismatch res "id:")))
-      (kill-buffer)
-      (org-graphs-display-graph nil (substring res 3)))))
+      (org-graphs-display-graph (file-name-base) (substring res 3)))))
 
-(defun org-graphs-rebuild-graph (root radius make-graph-fn)
-  "Create png and imap files in the `org-graphs-image-directory' directory named by the `root'.
+(defun org-graphs-rebuild-graph (base-file-name root make-graph-fn &optional filters)
+  "Create png and imap files in the `org-graphs-image-directory'
+directory named by the `base-file-name'.
 
-The `make-graph-fn' inserts the original graph into the buffer. The
-graph is
-- optionally filtered for ignored strings,
-- the nodes are tagged with the distance from the root node
-- the gvpr commands in `org-graphs-filter' are applied,
-- and optionally cycles are removed to simplify the structure
+The `MAKE-GRAPH-FN' inserts the original graph into the buffer. The
+graph is modified as specified by the list `FILTERS'. See `org-graphs-filters' for the syntax.
 
-The gvpr command is passed two arguments, root node (so that it can be
-set specifically), and value of `radius'. The idea
-is that it is the maximum distance from root node that is kept."
-  (let ((remove-cycles org-graphs-remove-cycles)
-	(ignore org-graphs-ignore-ids))
+Finally, process the graph with `org-graphs-cmd' to create image and imap file from the final graph.
+
+Return the graph as the string (mainly for debugging purposes).
+"
+  (let ((cmd org-graphs-cmd))
     (cl-flet ((cmd (name &rest pars)
-	       (let ((before (buffer-string))
-		     (res (apply 'call-process-region (point-min) (point-max) name pars)))
-		 (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
-		   (error (format "failed %s: %s->%s" name before (buffer-string)))))))
+		   (message "%s %S" name pars)
+		   (let ((before (buffer-string))
+			 (res (apply 'call-process-region (point-min) (point-max) name pars)))
+		     (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
+		       (error (format "failed %s: %s->%s" name before (buffer-string)))))))
       (with-temp-buffer
 	(funcall make-graph-fn)
-	(when ignore
-	  (delete-matching-lines (regexp-opt ignore) (point-min) (point-max)))
-	(cmd "dijkstra" t t nil root)
-	(when org-graphs-filter
-	  (cmd "gvpr" t t nil "-c" "-a"
-	       (format "%s %d.0" root
-		       (if (numberp radius) radius 3))
-	       "-qf" org-graphs-filter))
-	(when remove-cycles
-	  (cmd "acyclic" t t)
-	  (cmd "tred" t t))
+	(dolist (filter (or filters org-graphs-filters))
+	  (when (symbolp filter)
+	    (setq filter
+		  (or (cdr (assoc filter org-graphs-transformations))
+		      filter)))
+	  (cond
+	   ((and (stringp filter) (file-exists-p filter))
+	    (cmd "gvpr" t t nil "-c" "-qf" filter))
+	   ((and (stringp filter))
+	    (cmd "gvpr" t t nil "-c" "-q" filter))
+	   ((integerp filter)
+	    (when root
+	      (cmd "dijkstra" t t nil root)
+	      (cmd "gvpr" t t nil "-c" "-a" (format "%d.0" filter)
+		   "-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
+ N[!dist || dist >= maxdist] {delete(root, $)}")))
+	   ((eq filter 'remove-cycles)
+	    (cmd "acyclic" t t)
+	    (cmd "tred" t t))
+	   ((eq filter 'debug)
+	    (message "Filters debug: %s" (buffer-string)))
+	   ((and (consp filter)
+		 (eq (car filter) 'ignore))
+	    (delete-matching-lines (regexp-opt (cdr filter))
+				   (point-min) (point-max)))
+	   (t (error "Unknown transformation %s" filter))))
+	(message "cmd: %s" org-graphs-cmd)
 	(dolist (type '("png" "imap"))
-	  (cmd
-	   org-graphs-cmd
-	   nil nil nil "-o" (concat org-graphs-image-directory "/" root "." type) "-T" type))))))
+	  (cmd cmd
+	       nil nil nil "-o" (concat org-graphs-image-directory "/" base-file-name "." type) "-T" type))
+	(buffer-string)))))
 
- ;; (defun org-graphs-display (image-name)
- ;;     (let ((buf (find-buffer-visiting image-name)))
- ;;       (if (null buf)
- ;; 	   (find-file image-name)
- ;; 	 (switch-to-buffer buf)
- ;; 	 (revert-buffer t t)))
- ;;     (org-graphs-rebuild-graph t))
-
-(defun org-graphs-rebuild-and-display (radius root make-graph-fn ignore remove-cycles)
+(defun org-graphs-rebuild-and-display (base-file-name root make-graph-fn filters)
   "Redisplay the graph in the current buffer.
 
   Specifically set local values of some global parameters and run
@@ -152,22 +203,32 @@ is that it is the maximum distance from root node that is kept."
 
   Display the resulting png file or, when there is already a buffer
   with the file, redisplay."
-  (org-graphs-rebuild-graph root radius make-graph-fn)
+  (org-graphs-rebuild-graph base-file-name root make-graph-fn filters)
   ;; display it
-  (let ((old-image-buffer (get-file-buffer (concat org-graphs-image-directory root ".png"))))
+  (let ((old-image-buffer (get-file-buffer (concat org-graphs-image-directory base-file-name ".png"))))
     (if (null old-image-buffer)
-	(find-file (concat org-graphs-image-directory  root ".png"))
+	(find-file (concat org-graphs-image-directory base-file-name ".png"))
       (switch-to-buffer old-image-buffer)
       (setq-local revert-buffer-function 'revert-buffer--default)
       (revert-buffer t t)))
-   (setq-local org-graphs-ignore-ids ignore)
-   (setq-local org-graphs-remove-cycles remove-cycles)
-   (setq-local org-graphs-make-graph-fn make-graph-fn)
+  (setq-local org-graphs-filters filters)
+  (setq-local org-graphs-root root)
+  (setq-local org-graphs-make-graph-fn make-graph-fn)
   (org-graphs-graph-mode t))
 
-(defun org-graphs-display-graph (radius root &optional make-graph-fn)
-  (org-graphs-rebuild-and-display radius root (or make-graph-fn org-graphs-make-graph-fn)
-			org-graphs-ignore-ids org-graphs-remove-cycles))
+(defun org-graphs-display-graph (&optional base-file-name root make-graph-fn filters)
+  (org-graphs-rebuild-and-display base-file-name
+			(or root org-graphs-root)
+			(or make-graph-fn org-graphs-make-graph-fn)
+			(or filters org-graphs-filters)))
+
+(defun org-graphs-display-graph-buffer (root filters)
+  (interactive (list nil org-graphs-filters))
+  (let ((buffer (current-buffer)))
+    (org-graphs-rebuild-and-display (file-name-base)
+			  root
+			  (lambda () (insert-buffer-substring buffer))
+			  filters)))
 
 
 ;;; Callbacks to be bound on keys or events
@@ -184,7 +245,7 @@ is that it is the maximum distance from root node that is kept."
 
 (defun org-graphs-get-rects (file x y)
   (when (file-readable-p file)
-    (let ((scale (zettelkasten-graph-get-scale)))
+    (let ((scale (org-graphs-get-scale)))
       (setq x (/ x scale)
 	    y (/ y scale)))
     (save-mark-and-excursion
@@ -210,9 +271,16 @@ is that it is the maximum distance from root node that is kept."
 
 (defun org-graphs-zoom-by-key ()
   (interactive)
-  (org-graphs-display-graph (- (aref (this-command-keys) 0) 48) (file-name-base)))
+  (org-graphs-display-graph
+   (file-name-base)
+   org-graphs-root
+   org-graphs-make-graph-fn
+   (mapcar (lambda (a) (if (integerp a)
+			   (- (aref (this-command-keys) 0) 48)
+			 a))
+	   org-graphs-filters)))
 
-(defvar org-graphs-graph-keymap (make-sparse-keymap))
+(defvar org-graphs-keymap (make-sparse-keymap))
 
 (defun org-graphs-ignore (event-or-node)
   (interactive "@e")
@@ -225,37 +293,50 @@ is that it is the maximum distance from root node that is kept."
 	      (substring res 3)))))
   (when event-or-node
     (push event-or-node org-graphs-ignore-ids)
-    (org-graphs-display-graph nil (file-name-base))))
+    (org-graphs-display-graph)))
 
 (defun org-graphs-toggle-cycles ()
   (interactive)
-  (setq-local org-graphs-remove-cycles (not org-graphs-remove-cycles))
-  (org-graphs-display-graph nil (file-name-base)))
+  (if (member 'remove-cycles org-graphs-filters)
+      (setq-local org-graphs-filters (remove 'remove-cycles org-graphs-filters))
+    (setq-local org-graphs-filters (append org-graphs-filters '(remove-cycles))))
+  (org-graphs-display-graph))
 
-(bind-key "<mouse-1>" 'org-graphs-handle-click org-graphs-keymap)
-(bind-key "<S-mouse-1>" 'org-graphs-shift-focus org-graphs-graph-keymap)
-(bind-key "<S-down-mouse-1>" 'org-graphs-shift-focus  org-graphs-graph-keymap)
-(bind-key "0" 'org-graphs-graph-unscaled org-graphs-graph-keymap)
-(bind-key "1" 'org-graphs-zoom-by-key org-graphs-graph-keymap)
-(bind-key "2" 'org-graphs-zoom-by-key org-graphs-graph-keymap)
-(bind-key "3" 'org-graphs-zoom-by-key org-graphs-graph-keymap)
-(bind-key "4" 'org-graphs-zoom-by-key org-graphs-graph-keymap)
-(bind-key "5" 'org-graphs-zoom-by-key org-graphs-graph-keymap)
-(bind-key "6" 'org-graphs-zoom-by-key org-graphs-graph-keymap)
-(bind-key "7" 'org-graphs-zoom-by-key org-graphs-graph-keymap)
-(bind-key "8" 'org-graphs-zoom-by-key org-graphs-graph-keymap)
-(bind-key "9" 'org-graphs-zoom-by-key org-graphs-graph-keymap)
-(bind-key "<S-mouse-3>" 'org-graphs-ignore org-graphs-graph-keymap)
-(bind-key "<S-down-mouse-3>" 'org-graphs-ignore org-graphs-graph-keymap)
+(defun org-graphs-set-engine (&optional engine)
+  (interactive (cdr (read-multiple-choice "Engine: "
+					  '((?d "dot")
+					    (?c "circo")
+					    (?n "neato")
+					    (?t "twopi")))))
+  (setq-local org-graphs-cmd engine)
+  (org-graphs-display-graph))
+
+(define-key org-graphs-keymap [mouse-1] 'org-graphs-handle-click)
+(define-key org-graphs-keymap [S-mouse-1] 'org-graphs-shift-focus)
+(define-key org-graphs-keymap [S-down-mouse-1] 'org-graphs-shift-focus )
+(define-key org-graphs-keymap "0" 'org-graphs-graph-unscaled)
+(define-key org-graphs-keymap "1" 'org-graphs-zoom-by-key)
+(define-key org-graphs-keymap "2" 'org-graphs-zoom-by-key)
+(define-key org-graphs-keymap "3" 'org-graphs-zoom-by-key)
+(define-key org-graphs-keymap "4" 'org-graphs-zoom-by-key)
+(define-key org-graphs-keymap "5" 'org-graphs-zoom-by-key)
+(define-key org-graphs-keymap "6" 'org-graphs-zoom-by-key)
+(define-key org-graphs-keymap "7" 'org-graphs-zoom-by-key)
+(define-key org-graphs-keymap "8" 'org-graphs-zoom-by-key)
+(define-key org-graphs-keymap "9" 'org-graphs-zoom-by-key)
+(define-key org-graphs-keymap "c" 'org-graphs-toggle-cycles)
+(define-key org-graphs-keymap "e" 'org-graphs-set-engine)
+(define-key org-graphs-keymap (kbd "<S-mouse-3>") 'org-graphs-ignore)
+(define-key org-graphs-keymap (kbd "<S-down-mouse-3>") 'org-graphs-ignore)
 
 (define-minor-mode org-graphs-graph-mode "Local mode for ZK images.
 
 Allows shift focus to a different mode, and zoom in or zoom out
 to see less or more distant nodes.
 
-\\{org-graphs-graph-keymap}" nil "(ZK)" org-graphs-graph-keymap
+\\{org-graphs-keymap}" nil "(ZK)" org-graphs-keymap
   (setq-local revert-buffer-function (lambda (_a _b)
-				       (org-graphs-display-graph '(4) (file-name-base)))))
+				       (org-graphs-display-graph))))
 
 (provide 'org-graphs)
 ;;; org-graphs.el ends here
