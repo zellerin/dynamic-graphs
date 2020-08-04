@@ -61,7 +61,19 @@ and you will get an image with the full graph:
 
 Click on "A" box to open the example.com website from url.
 
-Shift-click over box F to get this:
+Press `e n' to switch to neato engine:
+
+[[./images/neato.png]]
+
+Shift-click over box F to show it and nodes connected to it (radius 2
+as in the filter list above). The ~default~ filter causes the root node
+to be highlighter in yellow.
+
+
 [[./images/F-around.png]]
 
-Press 3 to show additional nodes:
+
+Press 3 to increase radius for displayed nodes and display node A as
+well:
+
+[[./images/f-and-one.png]]
