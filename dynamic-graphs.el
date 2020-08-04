@@ -6,6 +6,7 @@
 ;; Keywords: tools
 ;; Package-version: 0.91
 ;; URL: https://github.com/zellerin/dynamic-graphs
+;; Package-Requires: ((emacs "26.1"))
 ;;
 ;;
 ;; This program is free software; you can redistribute it and/or modify
