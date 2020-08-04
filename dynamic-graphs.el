@@ -20,15 +20,15 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
-;;
+
 ;;; Commentary:
-;;
-;; Make dynamic graphs: take a graph, apply some filters, and display
-;; it as an image.  The graph can be either a function that inserts the
-;; graph (and is called for each redisplay), or a buffer that can
-;; change.  An imap file is created in addition to the image so that
-;; clicks on image can be related to individual nodes (TODO: only for
-;; rectangles so far)
+
+;; Make dynamic graphs: take a graph (as defined for graphviz), apply
+;; some filters, and display it as an image.  The graph can be either
+;; a function that inserts the graph (and is called for each
+;; redisplay), or a buffer that can change.  An imap file is created
+;; in addition to the image so that clicks on image can be related to
+;; individual nodes (TODO: only for rectangles so far)
 ;;
 ;; The filters can apply both enhancing operations (add colors, ...)
 ;; and more complicated operations coded in gvpr.  As a special case
