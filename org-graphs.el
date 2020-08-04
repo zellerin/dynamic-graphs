@@ -4,8 +4,9 @@
 ;;
 ;; Author: Tomas Zellerin <tomas@zellerin.cz>
 ;; Keywords: tools
-;; Package-version: 0.9
+;; Package-version: 0.91
 ;; URL: https://github.com/zellerin/dynamic-graphs
+;;
 ;;
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -61,7 +62,9 @@
 ;;
 ;;; Customizable variable
 (defcustom org-graphs-filters '(3 default remove-cycles)
-  "Default filter for org-graph.  This should be list of filters.
+  "Default filter for org-graph.
+
+This should be list of filters.
 
  Each filter can be:
 - a string that denotes either name of a gvpr file to be applied or
@@ -82,18 +85,25 @@ be changed dynamically."
 		  (const :tag "Remove cycles in graph" remove-cycles)
 		  (symbol :tag "Reference to org-graphs-transformations")
 		  (debug :tag "Dump transformed graph to *messages*"))))
+
 (put 'org-graphs-filters 'permanent-local t)
 
-(defcustom org-graphs-cmd "twopi"
-  "Command to create final image.
+(defvar org-graphs-engines
+  '((?d "dot")
+    (?c "circo")
+    (?n "neato")
+    (?t "twopi")
+    (?f "fdp")
+    (?s "sfdp")
+    (?o "osage")
+    (?p "patchwork"))
+  "List of available Graphviz programs.")
 
-The variable is set buffer-local in the image buffers so that it can
-be changed dynamically."
+(defcustom org-graphs-cmd "twopi"
+  "Command to create final image."
   :group 'org-graphs
-  :type '(choice (const "twopi")
-		 (const "dot")
-		 (const "neato")
-		 (const "circo")))
+  :type `(choice ,@(mapcar (lambda (a) `(const ,@(cdr a))) org-graphs-engines)))
+
 (put 'org-graphs-cmd 'permanent-local t)
 
 (defcustom org-graphs-image-directory (file-truename temporary-file-directory)
@@ -101,10 +111,18 @@ be changed dynamically."
   :group 'org-graphs
   :type 'directory)
 
-(defvar-local org-graphs-make-graph-fn nil
-  "Function that creates the initial graph.
+(defcustom org-graphs-follow-link-fn 'browse-url
+  "Function to follow links in the graphs."
+  :type '(choice
+	  (const browse-url)
+	  (const org-link-open-from-string)
+	  function)
+  :group 'org-graph)
 
-The variable is set buffer-local in the image buffers.")
+(defvar org-graphs-make-graph-fn nil
+  "Function that creates a graph.")
+
+(make-variable-buffer-local 'org-graphs-make-graph-fn)
 (put 'org-graphs-filters 'permanent-local t)
 
 (defvar-local org-graphs-root nil
@@ -196,20 +214,22 @@ Return the graph as the string (mainly for debugging purposes).
 	    (delete-matching-lines (regexp-opt (cdr filter))
 				   (point-min) (point-max)))
 	   (t (error "Unknown transformation %s" filter))))
-	(message "cmd: %s" org-graphs-cmd)
 	(dolist (type '("png" "imap"))
 	  (cmd cmd
 	       nil nil nil "-o" (concat org-graphs-image-directory "/" base-file-name "." type) "-T" type))
 	(buffer-string)))))
 
-(defun org-graphs-rebuild-and-display (base-file-name root make-graph-fn filters)
+(defun org-graphs-rebuild-and-display (&optional base-file-name root make-graph-fn filters)
   "Redisplay the graph in the current buffer.
 
   Specifically set local values of some global parameters and run
   `org-graphs-rebuild-graph' with appropriate arguments.
 
   Display the resulting png file or, when there is already a buffer
-  with the file, redisplay."
+  with the file, redisplay.
+
+Arguments `BASE-FILE-NAME', `ROOT', `MAKE-GRAPH-FN' and `FILTERS' are as
+in `REBUILD-GRAPH'"
   (org-graphs-rebuild-graph base-file-name root make-graph-fn filters)
   ;; display it
   (let ((old-image-buffer (get-file-buffer (concat org-graphs-image-directory base-file-name ".png"))))
@@ -223,13 +243,26 @@ Return the graph as the string (mainly for debugging purposes).
   (setq-local org-graphs-make-graph-fn make-graph-fn)
   (org-graphs-graph-mode t))
 
+;;;###autoload
 (defun org-graphs-display-graph (&optional base-file-name root make-graph-fn filters)
-  (org-graphs-rebuild-and-display base-file-name
+  "Display graph image and put it org-graphs-mode on.
+
+This is a shortcut for `org-graphs-rebuild-graph' with defaulting parameters.
+
+All parameters - BASE-FILE-NAME ROOT MAKE-GRAPH-FN and FILTERS - are optional
+with sensible defaults."
+  (org-graphs-rebuild-and-display (or base-file-name (file-name-base))
 			(or root org-graphs-root)
 			(or make-graph-fn org-graphs-make-graph-fn)
 			(or filters org-graphs-filters)))
 
 (defun org-graphs-display-graph-buffer (root filters)
+  "Make a dynamic graph from a graphviz buffer.
+
+There is no default ROOT
+node by default, and `org-graphs-filters' - either default value or a
+buffer-local if set, are used as default FILTERS when called
+interactively."
   (interactive (list nil org-graphs-filters))
   (let ((buffer (current-buffer)))
     (org-graphs-rebuild-and-display (file-name-base)
@@ -315,11 +348,16 @@ Return the graph as the string (mainly for debugging purposes).
   (org-graphs-display-graph))
 
 (defun org-graphs-set-engine (&optional engine)
+  "Locally set ENGINE for graph creation."
   (interactive (cdr (read-multiple-choice "Engine: "
 					  '((?d "dot")
 					    (?c "circo")
 					    (?n "neato")
-					    (?t "twopi")))))
+					    (?t "twopi")
+					    (?f "fdp")
+					    (?s "sfdp")
+					    (?o "osage")
+					    (?p "patchwork")))))
   (setq-local org-graphs-cmd engine)
   (org-graphs-display-graph))
 
