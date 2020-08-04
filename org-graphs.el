@@ -167,23 +167,28 @@ be changed dynamically."
          (new-image (image--image-without-parameters image)))
     (image--current-scaling image new-image)))
 
-;;; Graph creation and display
 (defun org-graphs-rebuild-graph (base-file-name root make-graph-fn &optional filters)
-  "Create png and imap files in the `org-graphs-image-directory'
-directory named by the `base-file-name'.
+  "Create png and imap files.
 
-The `MAKE-GRAPH-FN' inserts the original graph into the buffer. The
-graph is modified as specified by the list `FILTERS'. See `org-graphs-filters' for the syntax.
+The files are created in the `org-graphs-image-directory'
+directory named by the `BASE-FILE-NAME'.
 
-Finally, process the graph with `org-graphs-cmd' to create image and imap file from the final graph.
+The `MAKE-GRAPH-FN' inserts the original graph into the buffer.  The
+graph is modified as specified by the list `FILTERS'.  See
+`org-graphs-filters' for the syntax.
 
-Return the graph as the string (mainly for debugging purposes).
-"
+The `ROOT', if not null, indicates the root node for cutting off far
+nodes.
+
+Finally, process the graph with `org-graphs-cmd' to create image and
+imap file from the final graph.
+
+Return the graph as the string (mainly for debugging purposes)."
   (let ((cmd org-graphs-cmd))
     (cl-flet ((cmd (name &rest pars)
-		   (message "%s %S" name pars)
 		   (let ((before (buffer-string))
-			 (res (apply 'call-process-region (point-min) (point-max) name pars)))
+			 (res (apply 'call-process-region (point-min)
+				     (point-max) name pars)))
 		     (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
 		       (error (format "failed %s: %s->%s" name before (buffer-string)))))))
       (with-temp-buffer
@@ -272,7 +277,7 @@ interactively."
 
 ;;; Mouse handlers (expect imap in place with proper struture)
 (defun org-graphs-get-rects (file x y)
-  "Get URL of rectangle at the position on the image."
+  "Get reference related to the screen point X Y from the imap FILE."
   (when (file-readable-p file)
     (let ((scale (org-graphs-get-scale)))
       (setq x (/ x scale)
@@ -298,6 +303,9 @@ interactively."
 	res))))
 
 (defun org-graphs-shift-focus (e)
+    "Make the node under cursor new root.
+Argument E is the event."
+
   "Make the node under cursor new root."
   (interactive "@e")
   (let* ((pos (posn-x-y (event-start e)))
@@ -307,7 +315,9 @@ interactively."
       (org-graphs-display-graph (file-name-base) (substring res 3)))))
 
 (defun org-graphs-handle-click (e)
-  "Follow URL link in an image."
+  "Follow URL link in an image.
+
+The link is obtained from the callback event E."
   (interactive "@e")
   (let* ((pos (posn-x-y (event-start e)))
 	 (imapfile (concat (file-name-sans-extension buffer-file-name) ".imap"))
@@ -317,7 +327,9 @@ interactively."
       (org-link-open-from-string res))))
 
 (defun org-graphs-ignore (event-or-node)
-  ;; undocumented and does not work at the moment
+  "Work in progress, do not use.
+
+EVENT-OR-NODE determines a node to add to the ignore list."
   (interactive "@e")
   (when (eventp event-or-node)
     (let* ((pos (posn-x-y (event-start event-or-node)))
@@ -341,10 +353,13 @@ interactively."
   (org-graphs-display-graph))
 
 (defun org-graphs-toggle-cycles ()
+  "Toggle whether cycles should be broken."
   (interactive)
-  (if (member 'remove-cycles org-graphs-filters)
-      (setq-local org-graphs-filters (remove 'remove-cycles org-graphs-filters))
-    (setq-local org-graphs-filters (append org-graphs-filters '(remove-cycles))))
+
+  (setq-local org-graphs-filters
+	      (if (member 'remove-cycles org-graphs-filters)
+		  (remove 'remove-cycles org-graphs-filters)
+		(append org-graphs-filters '(remove-cycles))))
   (org-graphs-display-graph))
 
 (defun org-graphs-set-engine (&optional engine)
