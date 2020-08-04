@@ -1,4 +1,20 @@
 * Dynamic graphs in emacs
+
+** Motivations
+While it takes only few lines to make a graph in graph file language,
+it takes more effort to make it visually aligned with the rest of its
+presentation.
+
+For me, the best way is to separate graph definition in a .gv file
+from definition of fonts, colors etc that can be kept in a .gvpr
+file that can be used as a style file.
+
+Second motivations are big graphs. Graphviz does nice job of
+presenting them as whole, but in many case I want to be able to zoom
+near some particular node (original motivation was displaying close
+nodes in linked org files).
+
+** What this package does
 Make dynamic graphs: take a graph, apply some filters, and display
 it as an image. The graph can be either a function that inserts the
 graph (and is called for each redisplay), or a buffer that can
@@ -12,7 +28,7 @@ rectangles so far)
  there is a filter that removes all nodes that are more distant than
  a parameter from a root node.
 
- See docstring for `org-graphs-filters' for details about filters
+ See docstring for ~org-graphs-filters~ for details about filters
 
 ** Key bindings
  The image is displayed with a specialized minor mode.
@@ -26,7 +42,7 @@ rectangles so far)
    the org mode
  - S-mouse-1 (org-graphs-shift-focus) if the link for node is
    id:<node name>, extract node name and make it a new
-   root. Predefined filter `node-refs' set hrefs in such way. This
+   root. Predefined filter ~node-refs~ set hrefs in such way. This
    simplifies things when nodes relate to org mode items, but
    actually does not make much sense otherwise.
 

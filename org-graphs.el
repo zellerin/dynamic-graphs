@@ -5,6 +5,7 @@
 ;; Author: Tomas Zellerin <tomas@zellerin.cz>
 ;; Keywords: tools
 ;; Package-version: 0.9
+;; URL: https://github.com/zellerin/dynamic-graphs
 ;;
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -22,14 +23,14 @@
 ;;; Commentary:
 ;;
 ;; Make dynamic graphs: take a graph, apply some filters, and display
-;; it as an image. The graph can be either a function that inserts the
+;; it as an image.  The graph can be either a function that inserts the
 ;; graph (and is called for each redisplay), or a buffer that can
-;; change. An imap file is created in addition to the image so that
+;; change.  An imap file is created in addition to the image so that
 ;; clicks on image can be related to individual nodes (TODO: only for
 ;; rectangles so far)
 ;;
 ;; The filters can apply both enhancing operations (add colors, ...)
-;; and more complicated operations coded in gvpr. As a special case
+;; and more complicated operations coded in gvpr.  As a special case
 ;; there is a filter that removes all nodes that are more distant than
 ;; a parameter from a root node.
 ;;
@@ -39,12 +40,12 @@
 ;; - c (org-graphs-remove-cycles) change whether cycles are removed
 ;; - 1-9 (org-graphs-zoom-by-key) set maximum displayed distance from a root node
 ;; - mouse-1 (org-graphs-handle-click) follow link defined in imap
-;;   file - that is, in URL attribute of the node. Link is followed by
+;;   file - that is, in URL attribute of the node.  Link is followed by
 ;;   org-link-open-from-string, which is the only actual commection to
 ;;   the org mode
 ;; - S-mouse-1 (org-graphs-shift-focus) if the link for node is
 ;;   id:<node name>, extract node name and make it a new
-;;   root. Predefined filter `node-refs' set hrefs in such way. This
+;;   root.  Predefined filter `node-refs' set hrefs in such way.  This
 ;;   simplifies things when nodes relate to org mode items, but
 ;;   actually does not make much sense otherwise.
 ;;
@@ -60,7 +61,7 @@
 ;;
 ;;; Customizable variable
 (defcustom org-graphs-filters '(3 default remove-cycles)
-  "Default filter for org-graph. This should be list of filters.
+  "Default filter for org-graph.  This should be list of filters.
 
  Each filter can be:
 - a string that denotes either name of a gvpr file to be applied or
@@ -120,7 +121,7 @@ N[dist<0.5]{style=\"filled\",fillcolor=\"yellow\",fontsize=\"22\"}
 N[dist>1.5]{penwidth=\"0.1\",fontsize=\"12\"}
 N[dist>2.5]{shape=\"none\",fontsize=\"8\"}"))
   "Named predefined transformations gvdr snippets. The names can be
-  used in the org-graphs-filters to make it more manageable.
+used in the org-graphs-filters to make it more manageable.
 
 Predefined cases include:
 - boxize :: sets nodes shape to box. That is the only imap file the
