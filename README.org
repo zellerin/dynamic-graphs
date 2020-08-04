@@ -28,19 +28,19 @@ rectangles so far)
  there is a filter that removes all nodes that are more distant than
  a parameter from a root node.
 
- See docstring for ~org-graphs-filters~ for details about filters
+ See docstring for ~dynamic-graphs-filters~ for details about filters
 
 ** Key bindings
  The image is displayed with a specialized minor mode.
  Predefined key bindings on the displayed image in this mode include:
- - e (org-graphs-set-engine) change grahviz engine (dot, circo, ...)
- - c (org-graphs-remove-cycles) change whether cycles are removed
- - 1-9 (org-graphs-zoom-by-key) set maximum displayed distance from a root node
- - mouse-1 (org-graphs-handle-click) follow link defined in imap
+ - e (dynamic-graphs-set-engine) change grahviz engine (dot, circo, ...)
+ - c (dynamic-graphs-remove-cycles) change whether cycles are removed
+ - 1-9 (dynamic-graphs-zoom-by-key) set maximum displayed distance from a root node
+ - mouse-1 (dynamic-graphs-handle-click) follow link defined in imap
    file - that is, in URL attribute of the node. Link is followed by
    org-link-open-from-string, which is the only actual commection to
    the org mode
- - S-mouse-1 (org-graphs-shift-focus) if the link for node is
+ - S-mouse-1 (dynamic-graphs-shift-focus) if the link for node is
    id:<node name>, extract node name and make it a new
    root. Predefined filter ~node-refs~ set hrefs in such way. This
    simplifies things when nodes relate to org mode items, but
@@ -49,11 +49,11 @@ rectangles so far)
 ** Example
 Run
  #+begin_src elisp
- (org-graphs-display-graph "test" nil
+ (dynamic-graphs-display-graph "test" nil
 		    (lambda ()
-		      (insert "digraph Gr {A [URL=\"http://example.com\"] A->B B->C C->A A->E->F->G}"))
-		    '(2 remove-cycles "N {style=\"filled\",fillcolor=\"lightgreen\"}"
-                   node-refs boxize))
+		      (insert "digraph Gr {A [URL=\"http://example.com\"] A -> B -> C -> A ->E->F->G}"))
+		    '(2 "N {style=\"filled\",fillcolor=\"lightgreen\"}"
+                       node-refs boxize default))
  #+end_src
 
 and you will get an image with the full graph:
