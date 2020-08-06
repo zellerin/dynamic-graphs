@@ -113,7 +113,10 @@ be changed dynamically."
   :type 'directory)
 
 (defcustom dynamic-graphs-follow-link-fn 'browse-url
-  "Function to follow links in the graphs."
+  "Function to follow links in the graphs.
+
+I found `org-link-open-from-string' more useful than `browse-url', but if
+I set it as default, I would have to make org mode a dependency."
   :type '(choice
 	  (const browse-url)
 	  (const org-link-open-from-string)
@@ -202,7 +205,7 @@ Return the graph as the string (mainly for debugging purposes)."
 		  (or (cdr (assoc filter dynamic-graphs-transformations))
 		      filter)))
 	  (cond
-	   ((and (stringp filter) (file-exists-p filter))
+	   ((and (stringp filter) (file-exists-p (expand-file-name filter)))
 	    (cmd "gvpr" t t nil "-c" "-qf" filter))
 	   ((and (stringp filter))
 	    (cmd "gvpr" t t nil "-c" "-q" filter))
@@ -265,6 +268,7 @@ optional with sensible defaults."
 			(or make-graph-fn dynamic-graphs-make-graph-fn)
 			(or filters dynamic-graphs-filters)))
 
+;;;###autoload
 (defun dynamic-graphs-display-graph-buffer (root filters)
   "Make a dynamic graph from a graphviz buffer.
 
@@ -274,9 +278,12 @@ buffer-local if set, are used as default FILTERS when called
 interactively."
   (interactive (list nil dynamic-graphs-filters))
   (let ((buffer (current-buffer)))
-    (dynamic-graphs-rebuild-and-display (file-name-base)
+    (dynamic-graphs-rebuild-and-display (or (file-name-base) (read-string "Graph name: "))
 			  root
-			  (lambda () (insert-buffer-substring buffer))
+			  (lambda ()
+			    (insert-buffer-substring buffer)
+			    (setq default-directory
+				  (file-name-directory (buffer-file-name buffer))))
 			  filters)))
 
 ;;; Mouse handlers (expect imap in place with proper struture)
