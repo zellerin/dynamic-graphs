@@ -63,7 +63,7 @@
 ;;
 ;;; Customizable variable
 (defcustom dynamic-graphs-filters '(3 default remove-cycles)
-  "Default filter for org-graph.
+  "Default filter for dynamic-graphs.
 
 This should be list of filters.
 
@@ -78,7 +78,7 @@ This should be list of filters.
 
 The variable is set buffer-local in the image buffers so that it can
 be changed dynamically."
-  :group 'org-graph
+  :group 'dynamic-graphs
   :type '(repeat
 	  (choice (integer :tag "Maximum distance from root to keep")
 		  (string :tag "gvpr code to apply")
@@ -121,7 +121,7 @@ I set it as default, I would have to make org mode a dependency."
 	  (const browse-url)
 	  (const org-link-open-from-string)
 	  function)
-  :group 'org-graph)
+  :group 'dynamic-graph)
 
 (defvar dynamic-graphs-make-graph-fn nil
   "Function that creates a graph.")
@@ -163,7 +163,7 @@ Work in progress, do not expect it to work now.
 
 The variable is set buffer-local in the image buffers so that it can
 be changed dynamically."
-  :group 'org-graph
+  :group 'dynamic-graphs
   :type '(repeat string))
 
 ;;; Helper functions
