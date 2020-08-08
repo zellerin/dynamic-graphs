@@ -42,9 +42,9 @@
 ;; - c (dynamic-graphs-remove-cycles) change whether cycles are removed
 ;; - 1-9 (dynamic-graphs-zoom-by-key) set maximum displayed distance from a root node
 ;; - mouse-1 (dynamic-graphs-handle-click) follow link defined in imap
-;;   file - that is, in URL attribute of the node.  Link is followed by
-;;   org-link-open-from-string, which is the only actual commection to
-;;   the org mode
+;;   file - that is, in URL attribute of the node.  Link is followed
+;;   by customizable function, by default `browse-url' - but
+;;   `org-link-open-from-string' might be more useful..
 ;; - S-mouse-1 (dynamic-graphs-shift-focus) if the link for node is
 ;;   id:<node name>, extract node name and make it a new
 ;;   root.  Predefined filter `node-refs' set hrefs in such way.  This
@@ -193,7 +193,7 @@ Return the graph as the string (mainly for debugging purposes)."
   (let ((cmd dynamic-graphs-cmd))
     (cl-flet ((cmd (name &rest pars)
 		   (let ((before (buffer-string))
-			 (res (apply 'call-process-region (point-min)
+			 (res (apply #'call-process-region (point-min)
 				     (point-max) name pars)))
 		     (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
 		       (error (format "failed %s: %s->%s" name before (buffer-string)))))))
@@ -286,7 +286,7 @@ interactively."
 				  (file-name-directory (buffer-file-name buffer))))
 			  filters)))
 
-;;; Mouse handlers (expect imap in place with proper struture)
+;;; Mouse handlers (expect imap file in place with proper structure)
 (defun dynamic-graphs-get-rects (file x y)
   "Get reference related to the screen point X Y from the imap FILE."
   (when (file-readable-p file)
@@ -332,7 +332,6 @@ The link is obtained from the callback event E."
 	 (imapfile (concat (file-name-sans-extension buffer-file-name) ".imap"))
 	 (res (dynamic-graphs-get-rects imapfile (car pos) (cdr pos))))
     (when res
-      (message (format res))
       (funcall dynamic-graphs-follow-link-fn res))))
 
 (defun dynamic-graphs-ignore (event-or-node)
