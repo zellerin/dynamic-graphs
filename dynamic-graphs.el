@@ -44,7 +44,7 @@
 ;; - mouse-1 (dynamic-graphs-handle-click) follow link defined in imap
 ;;   file - that is, in URL attribute of the node.  Link is followed
 ;;   by customizable function, by default `browse-url' - but
-;;   `org-link-open-from-string' might be more useful..
+;;   `org-link-open-from-string' might be more useful.
 ;; - S-mouse-1 (dynamic-graphs-shift-focus) if the link for node is
 ;;   id:<node name>, extract node name and make it a new
 ;;   root.  Predefined filter `node-refs' set hrefs in such way.  This

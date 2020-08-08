@@ -37,9 +37,9 @@ rectangles so far)
  - c (dynamic-graphs-remove-cycles) change whether cycles are removed
  - 1-9 (dynamic-graphs-zoom-by-key) set maximum displayed distance from a root node
  - mouse-1 (dynamic-graphs-handle-click) follow link defined in imap
-   file - that is, in URL attribute of the node. Link is followed by
-   org-link-open-from-string, which is the only actual commection to
-   the org mode
+   file - that is, in URL attribute of the node.  Link is followed by
+   customizable function, by default `browse-url' - but
+   `org-link-open-from-string' might be more useful.
  - S-mouse-1 (dynamic-graphs-shift-focus) if the link for node is
    id:<node name>, extract node name and make it a new
    root. Predefined filter ~node-refs~ set hrefs in such way. This
