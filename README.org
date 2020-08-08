@@ -77,3 +77,11 @@ Press 3 to increase radius for displayed nodes and display node A as
 well:
 
 [[./images/f-and-one.png]]
+
+** Relation to other packages
+There is a [[https://github.com/ppareit/graphviz-dot-mode][graphviz-dot-mode]] package on Melpa that "helps you to
+create .dot or .gv files containing syntax compatible with Graphviz
+and use Graphviz to convert these files to diagrams".  This package
+does not compete on this; it tries to take existing .gv files (or
+buffers, or other, maybe large and generated sources) and visualize
+them inside Emacs with some styling and with interactive features.
