@@ -85,7 +85,7 @@ be changed dynamically."
 		  (file :must-match t :tag "gvpr source file to apply")
 		  (const :tag "Remove cycles in graph" remove-cycles)
 		  (symbol :tag "Reference to dynamic-graphs-transformations")
-		  (debug :tag "Dump transformed graph to *messages*"))))
+		  (const debug :tag "Dump transformed graph to *messages*"))))
 
 (put 'dynamic-graphs-filters 'permanent-local t)
 
