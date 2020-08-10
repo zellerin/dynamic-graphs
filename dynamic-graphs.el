@@ -4,7 +4,7 @@
 ;;
 ;; Author: Tomas Zellerin <tomas@zellerin.cz>
 ;; Keywords: tools
-;; Package-version: 0.91
+;; Package-version: 0.92
 ;; URL: https://github.com/zellerin/dynamic-graphs
 ;; Package-Requires: ((emacs "26.1"))
 ;;
@@ -169,9 +169,12 @@ be changed dynamically."
 ;;; Helper functions
 (defun dynamic-graphs-get-scale ()
   "Get scale of the image."
-  (let* ((image (image--get-imagemagick-and-warn))
-         (new-image (image--image-without-parameters image)))
-    (image--current-scaling image new-image)))
+  (let ((p (get-char-property (point) 'display)))
+    (if (and p
+	     (eq (car p) 'image)
+	     (eq (plist-get (cdr p) :type) 'imagemagick))
+	(plist-get (cdr p) :scale)
+      1.0)))
 
 (defun dynamic-graphs-rebuild-graph (base-file-name root make-graph-fn &optional filters)
   "Create png and imap files.
