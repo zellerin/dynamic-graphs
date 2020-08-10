@@ -123,8 +123,9 @@ I set it as default, I would have to make org mode a dependency."
 	  function)
   :group 'dynamic-graph)
 
-(defvar dynamic-graphs-make-graph-fn nil
-  "Function that creates a graph.")
+(defvar dynamic-graphs-make-graph-fn
+  (lambda () (error "Source of graph unknown, cant rebuild after change"))
+  "Function that creates the displayed graph.")
 
 (make-variable-buffer-local 'dynamic-graphs-make-graph-fn)
 (put 'dynamic-graphs-filters 'permanent-local t)
