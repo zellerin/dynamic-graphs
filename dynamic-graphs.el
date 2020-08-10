@@ -277,13 +277,15 @@ node by default, and `dynamic-graphs-filters' - either default value or a
 buffer-local if set, are used as default FILTERS when called
 interactively."
   (interactive (list nil dynamic-graphs-filters))
-  (let ((buffer (current-buffer)))
-    (dynamic-graphs-rebuild-and-display (or (file-name-base) (read-string "Graph name: "))
+  (let* ((buffer (current-buffer))
+	 (buffer-directory (when (buffer-file-name buffer)
+			     (expand-file-name (file-name-directory (buffer-file-name buffer))))))
+    (dynamic-graphs-rebuild-and-display (if (buffer-file-name) (file-name-base) (read-string "Graph name: "))
 			  root
 			  (lambda ()
 			    (insert-buffer-substring buffer)
-			    (setq default-directory
-				  (file-name-directory (buffer-file-name buffer))))
+			    (when buffer-directory
+			      (setq default-directory buffer-directory)))
 			  filters)))
 
 ;;; Mouse handlers (expect imap file in place with proper structure)
