@@ -45,7 +45,7 @@
 ;;   node or follow link defined in imap file - that is, in URL
 ;;   attribute of the node.  Link is followed by customizable
 ;;   function, by default `browse-url' - but
-;;   `org-link-open-from-string' might be more useful. See docstring
+;;   `org-link-open-from-string' might be more useful.  See docstring
 ;;   for details.
 ;;
 ;; Example:
@@ -166,7 +166,7 @@ be changed dynamically."
 
 ;;; Helper functions
 (defun dynamic-graphs-get-scale (image)
-  "Get scale of the image."
+  "Get scale of the IMAGE."
   (let ((size (and image (image-size image t))))
     (if (and image
 	     (eq (car image) 'image)
@@ -298,7 +298,7 @@ interactively."
 
 ;;; Mouse handlers (expect imap file in place with proper structure)
 (defun dynamic-graphs-get-rects (file raw-x raw-y)
-  "Get reference related to the screen point X Y from the imap FILE."
+  "Get reference related to the screen point RAW-X RAW-Y from the imap FILE."
   (when (file-readable-p file)
     (let* ((scale (dynamic-graphs-get-scale (get-char-property (point-min) 'display)))
 	   (x (* raw-x scale))
