@@ -41,15 +41,12 @@
 ;; - e (dynamic-graphs-set-engine) change grahviz engine (dot, circo, ...)
 ;; - c (dynamic-graphs-remove-cycles) change whether cycles are removed
 ;; - 1-9 (dynamic-graphs-zoom-by-key) set maximum displayed distance from a root node
-;; - mouse-1 (dynamic-graphs-handle-click) follow link defined in imap
-;;   file - that is, in URL attribute of the node.  Link is followed
-;;   by customizable function, by default `browse-url' - but
-;;   `org-link-open-from-string' might be more useful.
-;; - S-mouse-1 (dynamic-graphs-shift-focus) if the link for node is
-;;   id:<node name>, extract node name and make it a new
-;;   root.  Predefined filter `node-refs' set hrefs in such way.  This
-;;   simplifies things when nodes relate to org mode items, but
-;;   actually does not make much sense otherwise.
+;; - mouse-1 (dynamic-graphs-shift-focus-or-follow-link) shift root
+;;   node or follow link defined in imap file - that is, in URL
+;;   attribute of the node.  Link is followed by customizable
+;;   function, by default `browse-url' - but
+;;   `org-link-open-from-string' might be more useful. See docstring
+;;   for details.
 ;;
 ;; Example:
 ;;
@@ -325,26 +322,23 @@ interactively."
 		(setf res (match-string 1))))
 	  res)))))
 
-(defun dynamic-graphs-shift-focus (e)
-    "Make the node under cursor new root.
+(defun dynamic-graphs-shift-focus-or-follow-link (e)
+    "Follow link or shift root node.
+
+If the node in image has URL in form of \"id:something\" and this
+is first click, make it new root node.
+
+Otherwise, follow the URL with the the `dynamic-graphs-follow-link-fn'.
+
 Argument E is the event."
   (interactive "@e")
   (let* ((pos (posn-x-y (event-start e)))
 	 (imapfile (concat (file-name-sans-extension buffer-file-name) ".imap"))
 	 (res (dynamic-graphs-get-rects imapfile (car pos) (cdr pos))))
-    (when (and res (= 3 (cl-mismatch res "id:")))
-      (dynamic-graphs-display-graph (file-name-base) (substring res 3)))))
-
-(defun dynamic-graphs-handle-click (e)
-  "Follow URL link in an image.
-
-The link is obtained from the callback event E."
-  (interactive "@e")
-  (let* ((pos (posn-x-y (event-start e)))
-	 (imapfile (concat (file-name-sans-extension buffer-file-name) ".imap"))
-	 (res (dynamic-graphs-get-rects imapfile (car pos) (cdr pos))))
-    (when res
-      (funcall dynamic-graphs-follow-link-fn res))))
+    (cond
+     ((and res (= (event-click-count e) 1) (= 3 (cl-mismatch res "id:")))
+      (dynamic-graphs-display-graph (file-name-base) (substring res 3)))
+     (res (funcall dynamic-graphs-follow-link-fn res)))))
 
 (defun dynamic-graphs-ignore (event-or-node)
   "Work in progress, do not use.
@@ -400,9 +394,7 @@ EVENT-OR-NODE determines a node to add to the ignore list."
 ;;; Minor mode with handlers
 (defvar dynamic-graphs-keymap
   (let ((km (make-sparse-keymap)))
-    (define-key km [mouse-1] 'dynamic-graphs-handle-click)
-    (define-key km [S-mouse-1] 'dynamic-graphs-shift-focus)
-    (define-key km [S-down-mouse-1] 'dynamic-graphs-shift-focus )
+    (define-key km [mouse-1] 'dynamic-graphs-shift-focus-or-follow-link)
     (define-key km "1" 'dynamic-graphs-zoom-by-key)
     (define-key km "2" 'dynamic-graphs-zoom-by-key)
     (define-key km "3" 'dynamic-graphs-zoom-by-key)

@@ -38,15 +38,12 @@ Predefined key bindings on the displayed image in this mode include:
 - e (dynamic-graphs-set-engine) change grahviz engine (dot, circo, ...)
 - c (dynamic-graphs-remove-cycles) change whether cycles are removed
 - 1-9 (dynamic-graphs-zoom-by-key) set maximum displayed distance from a root node
-- mouse-1 (dynamic-graphs-handle-click) follow link defined in imap
-  file - that is, in URL attribute of the node.  Link is followed by
-  customizable function, by default `browse-url' - but
-  `org-link-open-from-string' might be more useful.
-- S-mouse-1 (dynamic-graphs-shift-focus) if the link for node is
-  id:<node name>, extract node name and make it a new
-  root. Predefined filter ~node-refs~ set hrefs in such way. This
-  simplifies things when nodes relate to org mode items, but
-  actually does not make much sense otherwise.
+- mouse-1 (dynamic-graphs-shift-focus-or-follow-link) shift root node
+  or follow link defined in imap file - that is, in URL attribute of
+  the node.  Link is followed by customizable function, by default
+  `browse-url' - but `org-link-open-from-string' might be more
+  useful. See docstring for details.
+
 
 * Example
 Run
@@ -67,7 +64,7 @@ Press `e n' to switch to neato engine:
 
 [[./images/neato.png]]
 
-Shift-click over box F to show it and nodes connected to it (radius 2
+Click over box F to show it and nodes connected to it (radius 2
 as in the filter list above). The ~default~ filter causes the root node
 to be highlighter in yellow.
 
