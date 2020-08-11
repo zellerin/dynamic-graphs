@@ -1,5 +1,7 @@
 #+TITLE: Dynamic graphs in emacs
 
+[[https://melpa.org/#/dynamic-graphs][https://melpa.org/packages/dynamic-graphs-badge.svg]]
+
 * Motivations
 While it takes only few lines to make a graph in graph file language,
 it takes more effort to make it visually aligned with the rest of its
