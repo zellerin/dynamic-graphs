@@ -4,7 +4,7 @@
 ;;
 ;; Author: Tomas Zellerin <tomas@zellerin.cz>
 ;; Keywords: tools
-;; Package-version: 0.92
+;; Package-version: 0.93
 ;; URL: https://github.com/zellerin/dynamic-graphs
 ;; Package-Requires: ((emacs "26.1"))
 ;;
