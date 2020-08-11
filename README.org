@@ -84,3 +84,8 @@ and use Graphviz to convert these files to diagrams".  This package
 does not compete on this; it tries to take existing .gv files (or
 buffers, or other, maybe large and generated sources) and visualize
 them inside Emacs with some styling and with interactive features.
+
+* Some Known bugs
+- The code to get URL from imap file works only for rectangles
+- The code to get scale of image is too complicated and relies on
+  undocumented, but I do not know how to do it better
