@@ -148,7 +148,7 @@ manageable.
 
 Predefined cases include:
 - boxize :: sets nodes shape to box.  That is the only imap file the
-code can handle at the moment,
+  code can handle at the moment,
 - default :: sample simple transformation used in the default filter.
   User is expected to customize it based on the preferences, or change
   it to a style file.
@@ -168,13 +168,20 @@ be changed dynamically."
   :type '(repeat string))
 
 ;;; Helper functions
-(defun dynamic-graphs-get-scale ()
+(defun dynamic-graphs-get-scale (image)
   "Get scale of the image."
-  (let ((p (get-char-property (point) 'display)))
-    (if (and p
-	     (eq (car p) 'image)
-	     (eq (plist-get (cdr p) :type) 'imagemagick))
-	(plist-get (cdr p) :scale)
+  (let ((size (and image (image-size image t))))
+    (if (and image
+	     (eq (car image) 'image)
+	     (eq (plist-get (cdr image) :type) 'imagemagick))
+	;; see comment i n image.c for compute_image_size: -1 x -1 is
+	;; native
+	(let* ((full-image (create-image (plist-get (cdr image) :file)
+					 nil nil :width -1 :height -1))
+	       (full-size
+		(progn (image-flush full-image)
+		       (image-size full-image t))))
+	  (/ (float (car full-size)) (car size)))
       1.0)))
 
 (defun dynamic-graphs-rebuild-graph (base-file-name root make-graph-fn &optional filters)
@@ -293,31 +300,30 @@ interactively."
 			  filters)))
 
 ;;; Mouse handlers (expect imap file in place with proper structure)
-(defun dynamic-graphs-get-rects (file x y)
+(defun dynamic-graphs-get-rects (file raw-x raw-y)
   "Get reference related to the screen point X Y from the imap FILE."
   (when (file-readable-p file)
-    (let ((scale (dynamic-graphs-get-scale)))
-      (setq x (/ x scale)
-	    y (/ y scale)))
-    (save-mark-and-excursion
-      (find-file file)
-      (goto-char 1)
-      (let (res)
-	(while (and (null res)
-		    (re-search-forward (rx bol "rect "
-					   (group (one-or-more nonl))
-					   " " (group (one-or-more nonl))
-					   "," (group (one-or-more nonl))
-					   " " (group (one-or-more nonl))
-					   "," (group (one-or-more nonl))
-					   eol)
-				       nil t))
-	  (if (and
-	       (> (string-to-number (match-string 4)) x (string-to-number (match-string 2)))
-	       (> (string-to-number (match-string 5)) y (string-to-number (match-string 3))))
-	      (setf res (match-string 1))))
-	(kill-buffer)
-	res))))
+    (let* ((scale (dynamic-graphs-get-scale (get-char-property (point-min) 'display)))
+	   (x (* raw-x scale))
+	   (y (* raw-y scale)))
+      (with-temp-buffer
+	(insert-file-contents file)
+	(goto-char 1)
+	(let (res)
+	  (while (and (null res)
+		      (re-search-forward (rx bol "rect "
+					     (group (one-or-more nonl))
+					     " " (group (one-or-more nonl))
+					     "," (group (one-or-more nonl))
+					     " " (group (one-or-more nonl))
+					     "," (group (one-or-more nonl))
+					     eol)
+					 nil t))
+	    (if (and
+		 (> (string-to-number (match-string 4)) x (string-to-number (match-string 2)))
+		 (> (string-to-number (match-string 5)) y (string-to-number (match-string 3))))
+		(setf res (match-string 1))))
+	  res)))))
 
 (defun dynamic-graphs-shift-focus (e)
     "Make the node under cursor new root.
