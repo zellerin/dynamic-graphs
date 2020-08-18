@@ -325,8 +325,9 @@ interactively."
 (defun dynamic-graphs-shift-focus-or-follow-link (e)
     "Follow link or shift root node.
 
-If the node in image has URL in form of \"id:something\" and this
-is first click, make it new root node.
+If the node in image has URL in form of \"id:something\", there
+is a specific `dynamic-graphs-make-graph-fn' and this is first
+click, make it new root node.
 
 Otherwise, follow the URL with the the `dynamic-graphs-follow-link-fn'.
 
@@ -336,7 +337,9 @@ Argument E is the event."
 	 (imapfile (concat (file-name-sans-extension buffer-file-name) ".imap"))
 	 (res (dynamic-graphs-get-rects imapfile (car pos) (cdr pos))))
     (cond
-     ((and res (= (event-click-count e) 1) (= 3 (cl-mismatch res "id:")))
+     ((and res
+	   (not (eql dynamic-graphs-make-graph-fn) (default-value 'dynamic-graphs-make-graph-fn))
+	   (= (event-click-count e) 1) (= 3 (cl-mismatch res "id:")))
       (dynamic-graphs-display-graph (file-name-base) (substring res 3)))
      (res (funcall dynamic-graphs-follow-link-fn res)))))
 

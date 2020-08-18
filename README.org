@@ -45,7 +45,8 @@ Predefined key bindings on the displayed image in this mode include:
   useful. See docstring for details.
 
 
-* Example
+* Examples
+** From function
 Run
  #+begin_src elisp
  (dynamic-graphs-display-graph "test" nil
@@ -71,12 +72,12 @@ to be highlighter in yellow.
 
 [[./images/F-around.png]]
 
-
 Press 3 to increase radius for displayed nodes and display node A as
 well:
 
 [[./images/f-and-one.png]]
-
+** From image and imap
+** From gv file
 * Relation to other packages
 There is a [[https://github.com/ppareit/graphviz-dot-mode][graphviz-dot-mode]] package on Melpa that "helps you to
 create .dot or .gv files containing syntax compatible with Graphviz
