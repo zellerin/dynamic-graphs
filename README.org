@@ -52,7 +52,7 @@ Run
  (dynamic-graphs-display-graph "test" nil
 		    (lambda ()
 		      (insert "digraph Gr {A [URL=\"http://example.com\"] A -> B -> C -> A ->E->F->G}"))
-		    '(2 "N {style=\"filled\",fillcolor=\"lightgreen\"}"
+		    '(2 "N {style=\"filled, rounded\",fillcolor=\"green\"}"
                        node-refs boxize default))
  #+end_src
 
