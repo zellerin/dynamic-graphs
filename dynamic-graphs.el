@@ -87,20 +87,22 @@ be changed dynamically."
 (put 'dynamic-graphs-filters 'permanent-local t)
 
 (defvar dynamic-graphs-engines
-  '((?d "dot")
-    (?c "circo")
-    (?n "neato")
-    (?t "twopi")
-    (?f "fdp")
-    (?s "sfdp")
-    (?o "osage")
-    (?p "patchwork"))
-  "List of available Graphviz programs.")
+  '((?d "dot" "directed graphs")
+    (?c "circo" "undirected graphs")
+    (?n "neato" "radial layouts")
+    (?t "twopi" "circular layout")
+    (?f "fdp" "undirected graphs")
+    (?s "sfdp" "large undirected graphs")
+    (?o "osage" "squarified tree map")
+    (?p "patchwork" "array based layouts"))
+  "List of available Graphviz programs with intended usage.")
 
 (defcustom dynamic-graphs-cmd "twopi"
   "Command to create final image."
   :group 'dynamic-graphs
-  :type `(choice ,@(mapcar (lambda (a) `(const ,@(cdr a))) dynamic-graphs-engines)))
+  :type `(choice ,@(mapcar (lambda (a)
+			     `(const  :tag ,(format "%s - %s" (cadr a) (caddr a)) ,(cadr a)))
+			   dynamic-graphs-engines)))
 
 (put 'dynamic-graphs-cmd 'permanent-local t)
 
@@ -385,14 +387,7 @@ EVENT-OR-NODE determines a node to add to the ignore list."
 (defun dynamic-graphs-set-engine (&optional engine)
   "Locally set ENGINE for graph creation."
   (interactive (cdr (read-multiple-choice "Engine: "
-					  '((?d "dot")
-					    (?c "circo")
-					    (?n "neato")
-					    (?t "twopi")
-					    (?f "fdp")
-					    (?s "sfdp")
-					    (?o "osage")
-					    (?p "patchwork")))))
+					  (mapcar (lambda (a) `(,(car a) ,(cadr a))) dynamic-graphs-engines))))
   (setq-local dynamic-graphs-cmd engine)
   (dynamic-graphs-display-graph))
 
