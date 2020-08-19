@@ -342,7 +342,7 @@ Argument E is the event."
 	 (res (dynamic-graphs-get-rects imapfile (car pos) (cdr pos))))
     (cond
      ((and res
-	   (not (eql dynamic-graphs-make-graph-fn) (default-value 'dynamic-graphs-make-graph-fn))
+	   (not (eql dynamic-graphs-make-graph-fn (default-value 'dynamic-graphs-make-graph-fn)))
 	   (= (event-click-count e) 1) (= 3 (cl-mismatch res "id:")))
       (dynamic-graphs-display-graph (file-name-base) (substring res 3)))
      (res (funcall dynamic-graphs-follow-link-fn res)))))
@@ -364,12 +364,12 @@ EVENT-OR-NODE determines a node to add to the ignore list."
     (dynamic-graphs-display-graph)))
 
 ;;; Key handlers
-(defun dynamic-graphs-zoom-by-key ()
+(defun dynamic-graphs-zoom-by-key (&optional keys)
   "Set distance to cut-off graph nodes based on the key that invoked it."
-  (interactive)
+  (interactive (list (this-command-keys)))
   (setq-local dynamic-graphs-filters
 	      (mapcar (lambda (a) (if (integerp a)
-				      (- (aref (this-command-keys) 0) 48)
+				      (- (aref keys 0) 48)
 				    a))
 		      dynamic-graphs-filters))
   (dynamic-graphs-display-graph))
