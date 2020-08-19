@@ -170,7 +170,9 @@ be changed dynamically."
   (let ((size (and image (image-size image t))))
     (if (and image
 	     (eq (car image) 'image)
-	     (eq (plist-get (cdr image) :type) 'imagemagick))
+	     ;; 27.1 support
+	     (or (and (fboundp 'image-transforms-p) (image-transforms-p))
+		 (eq (plist-get (cdr image) :type) 'imagemagick)))
 	;; see comment i n image.c for compute_image_size: -1 x -1 is
 	;; native
 	(let* ((full-image (create-image (plist-get (cdr image) :file)
