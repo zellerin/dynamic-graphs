@@ -1,0 +1,9 @@
+digraph G
+{
+	A -> B -> C -> A
+}
+
+//
+// Local Variables:
+// dynamic-graphs-filters: (10 "./style.gvpr")
+// End:

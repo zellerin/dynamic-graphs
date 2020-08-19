@@ -1,0 +1,8 @@
+// some basic style for nodes
+N [style="filled,rounded", fillcolor="green", shape="box"]
+
+// set URL as id:node so that clicks change root
+N[!URL] {URL=sprintf("id:%s", $.name)}
+
+// highlight root node in yellow
+N[dist && dist==0.0]{fillcolor="yellow",fontsize="22"}

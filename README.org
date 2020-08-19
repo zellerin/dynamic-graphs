@@ -76,8 +76,23 @@ Press 3 to increase radius for displayed nodes and display node A as
 well:
 
 [[./images/f-and-one.png]]
+** From gv file/buffer
+See .gv and .gvpr file in examples subdirectory:
+- running ~dynamic-graphs-display-graph-buffer~ in the example.gv buffer displays the graph
+- if you accepted the local variables, the style in style.gvpr is
+  applied and single click leads changes root
+- local variables can be set do define filters, root, etc
+
 ** From image and imap
-** From gv file
+If you open a png file that has an imap file with same base name in
+the same directory and turn on the ~dynamic-graphs-graph-mode~, the
+clicks on nodes with corresponding record in the imap file are
+interpreted by ~browse-url~ command (or, in general, by current
+~dynamic-graphs-follow-link-fn~) and the link is open
+
+You can try it on example.pmg in the examples directory; clicking to A
+or B should lead you to example web page or this repo on github.
+
 * Relation to other packages
 There is a [[https://github.com/ppareit/graphviz-dot-mode][graphviz-dot-mode]] package on Melpa that "helps you to
 create .dot or .gv files containing syntax compatible with Graphviz
