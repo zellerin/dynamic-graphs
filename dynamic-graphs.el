@@ -365,7 +365,7 @@ EVENT-OR-NODE determines a node to add to the ignore list."
 
 ;;; Key handlers
 (defun dynamic-graphs-zoom-by-key (&optional keys)
-  "Set distance to cut-off graph nodes based on the key that invoked it."
+  "Set distance to cut-off graph nodes based on the KEYS that invoked it."
   (interactive (list (this-command-keys)))
   (setq-local dynamic-graphs-filters
 	      (mapcar (lambda (a) (if (integerp a)
