@@ -1,0 +1,4 @@
+uses: leotaku/elisp-check@master
+with:
+  check: melpa
+  file: 'dynamic-graphs.el'
