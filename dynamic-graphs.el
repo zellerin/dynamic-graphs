@@ -186,6 +186,9 @@ be changed dynamically."
       1.0)))
 
 (defun dynamic-graphs-cmd (name &rest pars)
+  "Apply command NAME with PARS as a filter on the current buffer.
+
+Throw error if it failed."
   (let ((before (buffer-string))
 	(res (apply #'call-process-region (point-min)
 		    (point-max) name pars)))
@@ -225,6 +228,20 @@ be changed dynamically."
        (t (error "Unknown transformation %s" filter)))))  )
 
 (defun dynamic-graphs-create-outputs (suffixes &optional base-file-name root make-graph-fn filters)
+  "Create files of types SUFFIXES.
+
+The files are created in the `dynamic-graphs-image-directory'
+directory named by the `BASE-FILE-NAME'.
+
+The `MAKE-GRAPH-FN' inserts the original graph into the buffer.  The
+graph is modified as specified by the list `FILTERS'.  See
+`dynamic-graphs-filters' for the syntax.
+
+The `ROOT', if not null, indicates the root node for cutting off far
+nodes.
+
+Finally, process the graph with variable `dynamic-graphs-cmd' to create
+outputs with each of SUFFIXES type."
   (let ((cmd dynamic-graphs-cmd)
 	(base-file-name (or base-file-name (file-name-base (buffer-file-name))))
 	(root (or root dynamic-graphs-root))
@@ -251,17 +268,19 @@ graph is modified as specified by the list `FILTERS'.  See
 The `ROOT', if not null, indicates the root node for cutting off far
 nodes.
 
-Finally, process the graph with `dynamic-graphs-cmd' to create image and
-imap file from the final graph.
+Finally, process the graph with variable `dynamic-graphs-cmd' to
+create image and imap file from the final graph.
 
 Return the graph as the string (mainly for debugging purposes)."
   (dynamic-graphs-create-outputs '("png" "imap") base-file-name root make-graph-fn filters))
 
 (defun dynamic-graphs-save-gv ()
+  "Save current image in dot format as .gv file."
   (interactive)
   (dynamic-graphs-create-outputs '("gv")))
 
 (defun dynamic-graphs-save-pdf ()
+  "Save current image as .pdf file."
   (interactive)
   (dynamic-graphs-create-outputs '("pdf")))
 
