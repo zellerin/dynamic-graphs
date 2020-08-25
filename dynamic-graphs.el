@@ -186,11 +186,11 @@ be changed dynamically."
       1.0)))
 
 (defun dynamic-graphs-cmd (name &rest pars)
-		   (let ((before (buffer-string))
-			 (res (apply #'call-process-region (point-min)
-				     (point-max) name pars)))
-		     (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
-		       (error (format "failed %s: %s->%s" name before (buffer-string))))))
+  (let ((before (buffer-string))
+	(res (apply #'call-process-region (point-min)
+		    (point-max) name pars)))
+    (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
+      (error (format "failed %s: %s->%s" name before (buffer-string))))))
 
 (defun dynamic-graphs-apply-filters (filters)
   "Apply FILTERS on current buffer.
@@ -211,7 +211,7 @@ be changed dynamically."
 	(when root
 	  (dynamic-graphs-cmd "dijkstra" t t nil root)
 	  (dynamic-graphs-cmd "gvpr" t t nil "-c" "-a" (format "%d.0" filter)
-	       "-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
+		"-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
  N[!dist || dist >= maxdist] {delete(root, $)}")))
        ((eq filter 'remove-cycles)
 	(dynamic-graphs-cmd "acyclic" t t)
@@ -223,6 +223,20 @@ be changed dynamically."
 	(delete-matching-lines (regexp-opt (cdr filter))
 			       (point-min) (point-max)))
        (t (error "Unknown transformation %s" filter)))))  )
+
+(defun dynamic-graphs-create-outputs (suffixes &optional base-file-name root make-graph-fn filters)
+  (let ((cmd dynamic-graphs-cmd)
+	(base-file-name (or base-file-name (file-name-base (buffer-file-name))))
+	(root (or root dynamic-graphs-root))
+	(make-graph-fn (or make-graph-fn dynamic-graphs-make-graph-fn))
+	(filters (or filters dynamic-graphs-filters)))
+    (with-temp-buffer
+      (funcall make-graph-fn)
+      (setq dynamic-graphs-root root)
+      (dynamic-graphs-apply-filters filters)
+      (dolist (type suffixes)
+	(dynamic-graphs-cmd cmd
+	      nil nil nil "-o" (concat dynamic-graphs-image-directory "/" base-file-name "." type) "-T" type)))))
 
 (defun dynamic-graphs-rebuild-graph (base-file-name root make-graph-fn &optional filters)
   "Create png and imap files.
@@ -241,15 +255,15 @@ Finally, process the graph with `dynamic-graphs-cmd' to create image and
 imap file from the final graph.
 
 Return the graph as the string (mainly for debugging purposes)."
-  (let ((cmd dynamic-graphs-cmd))
-    (with-temp-buffer
-      (funcall make-graph-fn)
-      (setq dynamic-graphs-root root)
-      (dynamic-graphs-apply-filters filters)
-      (dolist (type '("png" "imap"))
-	(dynamic-graphs-cmd cmd
-	      nil nil nil "-o" (concat dynamic-graphs-image-directory "/" base-file-name "." type) "-T" type))
-      (buffer-string))))
+  (dynamic-graphs-create-outputs '("png" "imap") base-file-name root make-graph-fn filters))
+
+(defun dynamic-graphs-save-gv ()
+  (interactive)
+  (dynamic-graphs-create-outputs '("gv")))
+
+(defun dynamic-graphs-save-pdf ()
+  (interactive)
+  (dynamic-graphs-create-outputs '("pdf")))
 
 (defun dynamic-graphs-rebuild-and-display (&optional base-file-name root make-graph-fn filters)
   "Redisplay the graph in the current buffer.
@@ -285,9 +299,9 @@ parameters.
 All parameters - BASE-FILE-NAME ROOT MAKE-GRAPH-FN and FILTERS - are
 optional with sensible defaults."
   (dynamic-graphs-rebuild-and-display (or base-file-name (file-name-base))
-				      (or root dynamic-graphs-root)
-				      (or make-graph-fn dynamic-graphs-make-graph-fn)
-				      (or filters dynamic-graphs-filters)))
+			(or root dynamic-graphs-root)
+			(or make-graph-fn dynamic-graphs-make-graph-fn)
+			(or filters dynamic-graphs-filters)))
 
 ;;;###autoload
 (defun dynamic-graphs-display-graph-buffer (root filters)
@@ -302,12 +316,12 @@ interactively."
 	 (buffer-directory (when (buffer-file-name buffer)
 			     (expand-file-name (file-name-directory (buffer-file-name buffer))))))
     (dynamic-graphs-rebuild-and-display (if (buffer-file-name) (file-name-base) (read-string "Graph name: "))
-					root
-					(lambda ()
-					  (insert-buffer-substring buffer)
-					  (when buffer-directory
-					    (setq default-directory buffer-directory)))
-					filters)))
+			  root
+			  (lambda ()
+			    (insert-buffer-substring buffer)
+			    (when buffer-directory
+			      (setq default-directory buffer-directory)))
+			  filters)))
 
 ;;; Mouse handlers (expect imap file in place with proper structure)
 (defun dynamic-graphs-get-rects (file raw-x raw-y)
@@ -415,6 +429,8 @@ EVENT-OR-NODE determines a node to add to the ignore list."
     (define-key km "9" 'dynamic-graphs-zoom-by-key)
     (define-key km "c" 'dynamic-graphs-toggle-cycles)
     (define-key km "e" 'dynamic-graphs-set-engine)
+    (define-key km "!" 'dynamic-graphs-save-gv)
+    (define-key km "p" 'dynamic-graphs-save-pdf)
 
     km))
 					;(define-key dynamic-graphs-keymap (kbd "<S-mouse-3>") 'dynamic-graphs-ignore)
