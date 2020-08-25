@@ -43,7 +43,9 @@ Predefined key bindings on the displayed image in this mode include:
   the node.  Link is followed by customizable function, by default
   `browse-url' - but `org-link-open-from-string' might be more
   useful. See docstring for details.
-
+- ! saves current graph in a .gv file.
+- p saves current graph n pdf format.
+- / clears root.
 
 * Examples
 ** From function
