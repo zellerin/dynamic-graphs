@@ -185,6 +185,76 @@ be changed dynamically."
 	  (/ (float (car full-size)) (car size)))
       1.0)))
 
+(defun dynamic-graphs-cmd (name &rest pars)
+  "Apply command NAME with PARS as a filter on the current buffer.
+
+Throw error if it failed."
+  (let ((before (buffer-string))
+	(res (apply #'call-process-region (point-min)
+		    (point-max) name pars)))
+    (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
+      (error (format "failed %s: %s->%s" name before (buffer-string))))))
+
+(defun dynamic-graphs-apply-filters (filters)
+  "Apply FILTERS on current buffer.
+
+ See `dynamic-graphs-filters' for the syntax."
+  (let ((root dynamic-graphs-root))
+    (dolist (filter (or filters dynamic-graphs-filters))
+      (when (symbolp filter)
+	(setq filter
+	      (or (cdr (assoc filter dynamic-graphs-transformations))
+		  filter)))
+      (cond
+       ((and (stringp filter) (file-exists-p (expand-file-name filter)))
+	(dynamic-graphs-cmd "gvpr" t t nil "-c" "-qf" filter))
+       ((and (stringp filter))
+	(dynamic-graphs-cmd "gvpr" t t nil "-c" "-q" filter))
+       ((integerp filter)
+	(when root
+	  (dynamic-graphs-cmd "dijkstra" t t nil root)
+	  (dynamic-graphs-cmd "gvpr" t t nil "-c" "-a" (format "%d.0" filter)
+		"-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
+ N[!dist || dist >= maxdist] {delete(root, $)}")))
+       ((eq filter 'remove-cycles)
+	(dynamic-graphs-cmd "acyclic" t t)
+	(dynamic-graphs-cmd "tred" t t))
+       ((eq filter 'debug)
+	(message "Filters debug: %s" (buffer-string)))
+       ((and (consp filter)
+	     (eq (car filter) 'ignore))
+	(delete-matching-lines (regexp-opt (cdr filter))
+			       (point-min) (point-max)))
+       (t (error "Unknown transformation %s" filter)))))  )
+
+(defun dynamic-graphs-create-outputs (suffixes &optional base-file-name root make-graph-fn filters)
+  "Create files of types SUFFIXES.
+
+The files are created in the `dynamic-graphs-image-directory'
+directory named by the `BASE-FILE-NAME'.
+
+The `MAKE-GRAPH-FN' inserts the original graph into the buffer.  The
+graph is modified as specified by the list `FILTERS'.  See
+`dynamic-graphs-filters' for the syntax.
+
+The `ROOT', if not null, indicates the root node for cutting off far
+nodes.
+
+Finally, process the graph with variable `dynamic-graphs-cmd' to create
+outputs with each of SUFFIXES type."
+  (let ((cmd dynamic-graphs-cmd)
+	(base-file-name (or base-file-name (file-name-base (buffer-file-name))))
+	(root (or root dynamic-graphs-root))
+	(make-graph-fn (or make-graph-fn dynamic-graphs-make-graph-fn))
+	(filters (or filters dynamic-graphs-filters)))
+    (with-temp-buffer
+      (funcall make-graph-fn)
+      (setq dynamic-graphs-root root)
+      (dynamic-graphs-apply-filters filters)
+      (dolist (type suffixes)
+	(dynamic-graphs-cmd cmd
+	      nil nil nil "-o" (concat dynamic-graphs-image-directory "/" base-file-name "." type) "-T" type)))))
+
 (defun dynamic-graphs-rebuild-graph (base-file-name root make-graph-fn &optional filters)
   "Create png and imap files.
 
@@ -198,49 +268,21 @@ graph is modified as specified by the list `FILTERS'.  See
 The `ROOT', if not null, indicates the root node for cutting off far
 nodes.
 
-Finally, process the graph with `dynamic-graphs-cmd' to create image and
-imap file from the final graph.
+Finally, process the graph with variable `dynamic-graphs-cmd' to
+create image and imap file from the final graph.
 
 Return the graph as the string (mainly for debugging purposes)."
-  (let ((cmd dynamic-graphs-cmd))
-    (cl-flet ((cmd (name &rest pars)
-		   (let ((before (buffer-string))
-			 (res (apply #'call-process-region (point-min)
-				     (point-max) name pars)))
-		     (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
-		       (error (format "failed %s: %s->%s" name before (buffer-string)))))))
-      (with-temp-buffer
-	(funcall make-graph-fn)
-	(dolist (filter (or filters dynamic-graphs-filters))
-	  (when (symbolp filter)
-	    (setq filter
-		  (or (cdr (assoc filter dynamic-graphs-transformations))
-		      filter)))
-	  (cond
-	   ((and (stringp filter) (file-exists-p (expand-file-name filter)))
-	    (cmd "gvpr" t t nil "-c" "-qf" filter))
-	   ((and (stringp filter))
-	    (cmd "gvpr" t t nil "-c" "-q" filter))
-	   ((integerp filter)
-	    (when root
-	      (cmd "dijkstra" t t nil root)
-	      (cmd "gvpr" t t nil "-c" "-a" (format "%d.0" filter)
-		   "-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
- N[!dist || dist >= maxdist] {delete(root, $)}")))
-	   ((eq filter 'remove-cycles)
-	    (cmd "acyclic" t t)
-	    (cmd "tred" t t))
-	   ((eq filter 'debug)
-	    (message "Filters debug: %s" (buffer-string)))
-	   ((and (consp filter)
-		 (eq (car filter) 'ignore))
-	    (delete-matching-lines (regexp-opt (cdr filter))
-				   (point-min) (point-max)))
-	   (t (error "Unknown transformation %s" filter))))
-	(dolist (type '("png" "imap"))
-	  (cmd cmd
-	       nil nil nil "-o" (concat dynamic-graphs-image-directory "/" base-file-name "." type) "-T" type))
-	(buffer-string)))))
+  (dynamic-graphs-create-outputs '("png" "imap") base-file-name root make-graph-fn filters))
+
+(defun dynamic-graphs-save-gv ()
+  "Save current image in dot format as .gv file."
+  (interactive)
+  (dynamic-graphs-create-outputs '("gv")))
+
+(defun dynamic-graphs-save-pdf ()
+  "Save current image as .pdf file."
+  (interactive)
+  (dynamic-graphs-create-outputs '("pdf")))
 
 (defun dynamic-graphs-rebuild-and-display (&optional base-file-name root make-graph-fn filters)
   "Redisplay the graph in the current buffer.
@@ -327,7 +369,7 @@ interactively."
 	  res)))))
 
 (defun dynamic-graphs-shift-focus-or-follow-link (e)
-    "Follow link or shift root node.
+  "Follow link or shift root node.
 
 If the node in image has URL in form of \"id:something\", there
 is a specific `dynamic-graphs-make-graph-fn' and this is first
@@ -384,6 +426,12 @@ EVENT-OR-NODE determines a node to add to the ignore list."
 		(append dynamic-graphs-filters '(remove-cycles))))
   (dynamic-graphs-display-graph))
 
+(defun dynamic-graphs-clean-root ()
+  "Clean root to display full graph."
+  (interactive)
+  (setq dynamic-graphs-root nil)
+  (dynamic-graphs-display-graph)  )
+
 (defun dynamic-graphs-set-engine (&optional engine)
   "Locally set ENGINE for graph creation."
   (interactive (cdr (read-multiple-choice "Engine: "
@@ -406,10 +454,13 @@ EVENT-OR-NODE determines a node to add to the ignore list."
     (define-key km "9" 'dynamic-graphs-zoom-by-key)
     (define-key km "c" 'dynamic-graphs-toggle-cycles)
     (define-key km "e" 'dynamic-graphs-set-engine)
+    (define-key km "!" 'dynamic-graphs-save-gv)
+    (define-key km "p" 'dynamic-graphs-save-pdf)
+    (define-key km "/" 'dynamic-graphs-clean-root)
 
     km))
-;(define-key dynamic-graphs-keymap (kbd "<S-mouse-3>") 'dynamic-graphs-ignore)
-;(define-key dynamic-graphs-keymap (kbd "<S-down-mouse-3>") 'dynamic-graphs-ignore)
+					;(define-key dynamic-graphs-keymap (kbd "<S-mouse-3>") 'dynamic-graphs-ignore)
+					;(define-key dynamic-graphs-keymap (kbd "<S-down-mouse-3>") 'dynamic-graphs-ignore)
 
 (define-minor-mode dynamic-graphs-graph-mode "Local mode for dynamic images.
 
@@ -417,8 +468,8 @@ Allows shift focus to a different mode, and zoom in or zoom out
 to see less or more distant nodes.
 
 \\{dynamic-graphs-keymap}" nil "(dyn)" dynamic-graphs-keymap
-  (setq-local revert-buffer-function (lambda (_a _b)
-				       (dynamic-graphs-display-graph))))
+(setq-local revert-buffer-function (lambda (_a _b)
+				     (dynamic-graphs-display-graph))))
 
 (provide 'dynamic-graphs)
 ;;; dynamic-graphs.el ends here
