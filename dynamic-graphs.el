@@ -426,6 +426,12 @@ EVENT-OR-NODE determines a node to add to the ignore list."
 		(append dynamic-graphs-filters '(remove-cycles))))
   (dynamic-graphs-display-graph))
 
+(defun dynamic-graphs-clean-root ()
+  "Clean root to display full graph."
+  (interactive)
+  (setq dynamic-graphs-root nil)
+  (dynamic-graphs-display-graph)  )
+
 (defun dynamic-graphs-set-engine (&optional engine)
   "Locally set ENGINE for graph creation."
   (interactive (cdr (read-multiple-choice "Engine: "
@@ -450,6 +456,7 @@ EVENT-OR-NODE determines a node to add to the ignore list."
     (define-key km "e" 'dynamic-graphs-set-engine)
     (define-key km "!" 'dynamic-graphs-save-gv)
     (define-key km "p" 'dynamic-graphs-save-pdf)
+    (define-key km "/" 'dynamic-graphs-clean-root)
 
     km))
 					;(define-key dynamic-graphs-keymap (kbd "<S-mouse-3>") 'dynamic-graphs-ignore)
