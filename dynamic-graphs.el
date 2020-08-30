@@ -469,8 +469,6 @@ EVENT-OR-NODE determines a node to add to the ignore list."
     (define-key km "/" 'dynamic-graphs-clean-root)
 
     km))
-					;(define-key dynamic-graphs-keymap (kbd "<S-mouse-3>") 'dynamic-graphs-ignore)
-					;(define-key dynamic-graphs-keymap (kbd "<S-down-mouse-3>") 'dynamic-graphs-ignore)
 
 (define-minor-mode dynamic-graphs-graph-mode "Local mode for dynamic images.
 
