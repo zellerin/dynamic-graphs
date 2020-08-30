@@ -342,6 +342,16 @@ interactively."
 			      (setq default-directory buffer-directory)))
 			  filters)))
 
+(defun dynamic-graphs--get-coords ()
+  (interactive)
+  "Read coordinates from image so that they can be used in a map definition."
+  (let ((e (read-event "Click somewhere: ")))
+    (let* ((scale (dynamic-graphs-get-scale (get-char-property (point-min) 'display)))
+	   (pos (posn-x-y (event-start e)))
+	   (x (* (car pos) scale))
+	   (y (* (cdr pos) scale)))
+      (message "%s %s" x y))))
+
 ;;; Mouse handlers (expect imap file in place with proper structure)
 (defun dynamic-graphs-get-rects (file raw-x raw-y)
   "Get reference related to the screen point RAW-X RAW-Y from the imap FILE."
