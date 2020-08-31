@@ -516,6 +516,7 @@ EVENT-OR-NODE determines a node to add to the ignore list."
     (define-key km "!" 'dynamic-graphs-save-gv)
     (define-key km "p" 'dynamic-graphs-save-pdf)
     (define-key km "/" 'dynamic-graphs-clean-root)
+    (define-key km "?" 'dynamic-graphs-help)
 
     km))
 
@@ -527,6 +528,19 @@ to see less or more distant nodes.
 \\{dynamic-graphs-keymap}" nil "(dyn)" dynamic-graphs-keymap
 (setq-local revert-buffer-function (lambda (_a _b)
 				     (dynamic-graphs-display-graph))))
+
+(defun dynamic-graphs-help ()
+  "Experimental: show alt texts or href on nodes."
+  (interactive)
+  (track-mouse
+    (let ((event))
+      (while (and
+	      (setq event (read-event))
+	      (mouse-movement-p event))
+	(let-alist (dynamic-graphs-event-node event)
+	  (when (and (or .alt .href)
+		     (sit-for 0.3))
+	    (tooltip-show (or (and (plusp (length .alt)) .alt) .href))))))))
 
 (provide 'dynamic-graphs)
 ;;; dynamic-graphs.el ends here
