@@ -363,7 +363,7 @@ interactively."
 	 (let-alist (cadr item)
 	   (let ((coords (mapcar #'string-to-number (split-string  .coords ","))))
 	     (if (and
-		  (eq .shape "rect")
+		  (equal .shape "rect")
 		  (> (nth 2 coords) x (nth 0 coords))
 		  (> (nth 3 coords) y  (nth 1 coords)))
 		 (cadr item))))))
