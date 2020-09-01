@@ -473,22 +473,6 @@ Argument E is the event."
 	(dynamic-graphs-display-graph (file-name-base (buffer-name)) (substring .href 3))))
      (.href (funcall dynamic-graphs-follow-link-fn .href)))))
 
-(defun dynamic-graphs-ignore (event-or-node)
-  "Work in progress, do not use.
-
-EVENT-OR-NODE determines a node to add to the ignore list."
-  (interactive "@e")
-  (when (eventp event-or-node)
-    (let* ((pos (posn-x-y (event-start event-or-node)))
-	   (imapfile (concat (file-name-sans-extension buffer-file-name) ".cmapx"))
-	   (res (dynamic-graphs-get-rects imapfile (car pos) (cdr pos))))
-      (setf event-or-node
-	    (when (and res (= 3 (cl-mismatch res "id:")))
-	      (substring res 3)))))
-  (when event-or-node
-    (push event-or-node dynamic-graphs-ignore-ids)
-    (dynamic-graphs-display-graph)))
-
 ;;; Key handlers
 (defun dynamic-graphs-zoom-by-key (&optional keys)
   "Set distance to cut-off graph nodes based on the KEYS that invoked it."
