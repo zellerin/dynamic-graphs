@@ -549,7 +549,7 @@ to see less or more distant nodes.
 	(let-alist (dynamic-graphs-event-node event)
 	  (when (and (or .alt .href)
 		     (sit-for 0.3))
-	    (tooltip-show (or (and (plusp (length .alt)) .alt) .href))))))))
+	    (tooltip-show (or (and (> (length .alt) 0) .alt) .href))))))))
 
 (provide 'dynamic-graphs)
 ;;; dynamic-graphs.el ends here
