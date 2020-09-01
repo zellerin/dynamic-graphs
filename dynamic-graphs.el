@@ -253,7 +253,7 @@ nodes.
 Finally, process the graph with variable `dynamic-graphs-cmd' to create
 outputs with each of SUFFIXES type."
   (let ((cmd dynamic-graphs-cmd)
-	(base-file-name (or base-file-name (file-name-base (buffer-file-name))))
+	(base-file-name (or base-file-name (file-name-base (buffer-name))))
 	(root (or root dynamic-graphs-root))
 	(make-graph-fn (or make-graph-fn dynamic-graphs-make-graph-fn))
 	(filters (or filters dynamic-graphs-filters)))
@@ -359,7 +359,7 @@ interactively."
   (let* ((buffer (current-buffer))
 	 (buffer-directory (when (buffer-file-name buffer)
 			     (expand-file-name (file-name-directory (buffer-file-name buffer))))))
-    (dynamic-graphs-rebuild-and-display (if (buffer-file-name) (file-name-base) (read-string "Graph name: "))
+    (dynamic-graphs-rebuild-and-display (file-name-base (buffer-name))
 			  root
 			  (lambda ()
 			    (insert-buffer-substring buffer)
@@ -469,7 +469,7 @@ Argument E is the event."
 	   (not (eql dynamic-graphs-make-graph-fn (default-value 'dynamic-graphs-make-graph-fn)))
 	   (= (event-click-count e) 1) (= 3 (cl-mismatch .href "id:")))
       (when (sit-for 0.2 t)
-	;; wait for second click
+	;; wait for second click. What is proper variable for timing?
 	(dynamic-graphs-display-graph (file-name-base (buffer-name)) (substring .href 3))))
      (.href (funcall dynamic-graphs-follow-link-fn .href)))))
 
