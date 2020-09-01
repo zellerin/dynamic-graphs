@@ -267,7 +267,7 @@ outputs with each of SUFFIXES type."
       (buffer-string))))
 
 (defvar dynamic-graphs-parsed nil
-  "Parsed cmapx file, if available")
+  "Parsed cmapx file, if available.")
 (put 'dynamic-graphs-parsed 'permanent-local t)
 
 
@@ -296,7 +296,7 @@ Return the graph as the string (mainly for debugging purposes)."
 	    (dynamic-graphs-filter cmd "-T" "cmapx")
 	    (let ((p (libxml-parse-xml-region (point-min) (point-max))))
 	      (unless (eq (car p) 'map)
-		(error "cmapx parse unexpected situation: %s" p))
+		(error "Cmapx parse unexpected situation: %s" p))
 	      (cddr p))))
     code))
 
