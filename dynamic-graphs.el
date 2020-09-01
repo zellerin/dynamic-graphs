@@ -169,7 +169,8 @@ be changed dynamically."
 ;;; Helper functions
 (defun dynamic-graphs-get-scale (image)
   "Get scale of the IMAGE."
-  (let ((size (and image (image-size image t))))
+  (let ((size (and image (image-size image t)))
+	(src-type (if (member :file image) :file :data)))
     (if (and image
 	     (eq (car image) 'image)
 	     ;; 27.1 support
@@ -177,8 +178,10 @@ be changed dynamically."
 		 (eq (plist-get (cdr image) :type) 'imagemagick)))
 	;; see comment i n image.c for compute_image_size: -1 x -1 is
 	;; native
-	(let* ((full-image (create-image (plist-get (cdr image) :file)
-					 nil nil :width -1 :height -1))
+	(let* ((full-image (create-image (plist-get (cdr image) src-type)
+					 (plist-get (cdr image) :type)
+					 (eq src-type :data)
+					   :width -1 :height -1))
 	       (full-size
 		(progn (image-flush full-image)
 		       (image-size full-image t))))
@@ -195,6 +198,13 @@ Throw error if it failed."
     (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
       (error (format "failed %s: %s->%s" name before (buffer-string))))))
 
+(defun dynamic-graphs-filter (name &rest pars)
+  "Apply command NAME with PARS as a filter on the current buffer.
+
+Throw error if it failed."
+  (apply #'dynamic-graphs-cmd name t t nil pars))
+
+
 (defun dynamic-graphs-apply-filters (filters)
   "Apply FILTERS on current buffer.
 
@@ -207,18 +217,18 @@ Throw error if it failed."
 		  filter)))
       (cond
        ((and (stringp filter) (file-exists-p (expand-file-name filter)))
-	(dynamic-graphs-cmd "gvpr" t t nil "-c" "-qf" filter))
+	(dynamic-graphs-filter "gvpr" "-c" "-qf" filter))
        ((and (stringp filter))
-	(dynamic-graphs-cmd "gvpr" t t nil "-c" "-q" filter))
+	(dynamic-graphs-filter "gvpr" "-c" "-q" filter))
        ((integerp filter)
 	(when root
-	  (dynamic-graphs-cmd "dijkstra" t t nil root)
-	  (dynamic-graphs-cmd "gvpr" t t nil "-c" "-a" (format "%d.0" filter)
+	  (dynamic-graphs-filter "dijkstra" root)
+	  (dynamic-graphs-filter "gvpr" "-c" "-a" (format "%d.0" filter)
 		"-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
  N[!dist || dist >= maxdist] {delete(root, $)}")))
        ((eq filter 'remove-cycles)
-	(dynamic-graphs-cmd "acyclic" t t)
-	(dynamic-graphs-cmd "tred" t t))
+	(dynamic-graphs-filter "acyclic")
+	(dynamic-graphs-filter "tred"))
        ((eq filter 'debug)
 	(message "Filters debug: %s" (buffer-string)))
        ((and (consp filter)
@@ -243,7 +253,7 @@ nodes.
 Finally, process the graph with variable `dynamic-graphs-cmd' to create
 outputs with each of SUFFIXES type."
   (let ((cmd dynamic-graphs-cmd)
-	(base-file-name (or base-file-name (file-name-base (buffer-file-name))))
+	(base-file-name (or base-file-name (file-name-base (buffer-name))))
 	(root (or root dynamic-graphs-root))
 	(make-graph-fn (or make-graph-fn dynamic-graphs-make-graph-fn))
 	(filters (or filters dynamic-graphs-filters)))
@@ -253,7 +263,13 @@ outputs with each of SUFFIXES type."
       (dynamic-graphs-apply-filters filters)
       (dolist (type suffixes)
 	(dynamic-graphs-cmd cmd
-	      nil nil nil "-o" (concat dynamic-graphs-image-directory "/" base-file-name "." type) "-T" type)))))
+	      nil nil nil "-o" (concat dynamic-graphs-image-directory "/" base-file-name "." type) "-T" type))
+      (buffer-string))))
+
+(defvar dynamic-graphs-parsed nil
+  "Parsed cmapx file, if available.")
+(put 'dynamic-graphs-parsed 'permanent-local t)
+
 
 (defun dynamic-graphs-rebuild-graph (base-file-name root make-graph-fn &optional filters)
   "Create png and imap files.
@@ -272,7 +288,17 @@ Finally, process the graph with variable `dynamic-graphs-cmd' to
 create image and imap file from the final graph.
 
 Return the graph as the string (mainly for debugging purposes)."
-  (dynamic-graphs-create-outputs '("png" "imap") base-file-name root make-graph-fn filters))
+  (let ((code (dynamic-graphs-create-outputs nil base-file-name root make-graph-fn filters))
+	(cmd dynamic-graphs-cmd))
+    (setq-local dynamic-graphs-parsed
+	  (with-temp-buffer
+	    (insert code)
+	    (dynamic-graphs-filter cmd "-T" "cmapx")
+	    (let ((p (libxml-parse-xml-region (point-min) (point-max))))
+	      (unless (eq (car p) 'map)
+		(error "Cmapx parse unexpected situation: %s" p))
+	      (cddr p))))
+    code))
 
 (defun dynamic-graphs-save-gv ()
   "Save current image in dot format as .gv file."
@@ -295,18 +321,17 @@ Return the graph as the string (mainly for debugging purposes)."
 
 Arguments `BASE-FILE-NAME', `ROOT', `MAKE-GRAPH-FN' and `FILTERS' are as
 in `REBUILD-GRAPH'"
-  (dynamic-graphs-rebuild-graph base-file-name root make-graph-fn filters)
-  ;; display it
-  (let ((old-image-buffer (get-file-buffer (concat dynamic-graphs-image-directory base-file-name ".png"))))
-    (if (null old-image-buffer)
-	(find-file (concat dynamic-graphs-image-directory base-file-name ".png"))
-      (switch-to-buffer old-image-buffer)
-      (setq-local revert-buffer-function 'revert-buffer--default)
-      (revert-buffer t t)))
-  (setq-local dynamic-graphs-filters filters)
-  (setq-local dynamic-graphs-root root)
-  (setq-local dynamic-graphs-make-graph-fn make-graph-fn)
-  (dynamic-graphs-graph-mode t))
+  (switch-to-buffer (concat base-file-name ".png")) ; just to be sure
+  (let ((inhibit-read-only t))
+    (delete-region (point-min) (point-max)))
+  (insert (dynamic-graphs-rebuild-graph base-file-name root make-graph-fn filters))
+     (let ((coding-system-for-read 'no-conversion))
+       (dynamic-graphs-filter dynamic-graphs-cmd "-T" "png"))
+     (image-mode)
+     (setq-local dynamic-graphs-filters filters)
+     (setq-local dynamic-graphs-root root)
+     (setq-local dynamic-graphs-make-graph-fn make-graph-fn)
+     (dynamic-graphs-graph-mode t))
 
 ;;;###autoload
 (defun dynamic-graphs-display-graph (&optional base-file-name root make-graph-fn filters)
@@ -317,7 +342,7 @@ parameters.
 
 All parameters - BASE-FILE-NAME ROOT MAKE-GRAPH-FN and FILTERS - are
 optional with sensible defaults."
-  (dynamic-graphs-rebuild-and-display (or base-file-name (file-name-base))
+  (dynamic-graphs-rebuild-and-display (or base-file-name (file-name-base (buffer-name)))
 			(or root dynamic-graphs-root)
 			(or make-graph-fn dynamic-graphs-make-graph-fn)
 			(or filters dynamic-graphs-filters)))
@@ -334,7 +359,7 @@ interactively."
   (let* ((buffer (current-buffer))
 	 (buffer-directory (when (buffer-file-name buffer)
 			     (expand-file-name (file-name-directory (buffer-file-name buffer))))))
-    (dynamic-graphs-rebuild-and-display (if (buffer-file-name) (file-name-base) (read-string "Graph name: "))
+    (dynamic-graphs-rebuild-and-display (file-name-base (buffer-name))
 			  root
 			  (lambda ()
 			    (insert-buffer-substring buffer)
@@ -342,68 +367,111 @@ interactively."
 			      (setq default-directory buffer-directory)))
 			  filters)))
 
-;;; Mouse handlers (expect imap file in place with proper structure)
-(defun dynamic-graphs-get-rects (file raw-x raw-y)
-  "Get reference related to the screen point RAW-X RAW-Y from the imap FILE."
-  (when (file-readable-p file)
+(defun dynamic-graphs--get-coords ()
+  "Read coordinates from image so that they can be used in a map definition."
+  (interactive)
+  (let ((e (read-event "Click somewhere: ")))
     (let* ((scale (dynamic-graphs-get-scale (get-char-property (point-min) 'display)))
-	   (x (* raw-x scale))
-	   (y (* raw-y scale)))
-      (with-temp-buffer
-	(insert-file-contents file)
-	(goto-char 1)
-	(let (res)
-	  (while (and (null res)
-		      (re-search-forward (rx bol "rect "
-					     (group (one-or-more nonl))
-					     " " (group (one-or-more nonl))
-					     "," (group (one-or-more nonl))
-					     " " (group (one-or-more nonl))
-					     "," (group (one-or-more nonl))
-					     eol)
-					 nil t))
-	    (if (and
-		 (> (string-to-number (match-string 4)) x (string-to-number (match-string 2)))
-		 (> (string-to-number (match-string 5)) y (string-to-number (match-string 3))))
-		(setf res (match-string 1))))
-	  res)))))
+	   (pos (posn-x-y (event-start e)))
+	   (x (* (car pos) scale))
+	   (y (* (cdr pos) scale)))
+      (message "%s %s" x y))))
+
+;;; Mouse handlers (expect imap/cmapx file in place with proper structure)
+(defun dynamic-graphs-get-rects-sexp (sexp x y)
+  "Get reference related to the screen point X Y from the SEXP that describes node links."
+  ;; SEXP is  (map ((id . XXX)) (area ((...)))...
+  (with-temp-buffer
+    (seq-some
+     (lambda (item)
+       (when (eq (car item) 'area)
+	 (let-alist (cadr item)
+	   (let ((coords (mapcar #'string-to-number (split-string  .coords ","))))
+	     (if (and
+		  (equal .shape "rect")
+		  (> (nth 2 coords) x (nth 0 coords))
+		  (> (nth 3 coords) y  (nth 1 coords)))
+		 (cadr item))))))
+     sexp)))
+
+(defun dynamic-graphs-get-rects-imap (file x y)
+  "Get reference related to the screen point X Y from the imap FILE.
+
+To be used for existing imap files; note that cmapx format is
+preferred and generated now."
+  (when (file-readable-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char 1)
+      (let (res)
+	(while (and (null res)
+		    (re-search-forward (rx bol "rect "
+					   (group (one-or-more nonl))
+					   " " (group (one-or-more nonl))
+					   "," (group (one-or-more nonl))
+					   " " (group (one-or-more nonl))
+					   "," (group (one-or-more nonl))
+					   eol)
+				       nil t))
+	  (if (and
+	       (> (string-to-number (match-string 4)) x (string-to-number (match-string 2)))
+	       (> (string-to-number (match-string 5)) y (string-to-number (match-string 3))))
+	      (setf res (match-string 1))))
+	(list (cons 'href res))))))
+
+(defun dynamic-graphs-get-rects-cmapx (file raw-x raw-y)
+  "Get reference related to the screen point RAW-X RAW-Y from the cmapx FILE."
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let ((res (libxml-parse-xml-region (point-min) (point-max))))
+	;; res is (map ((id . XXX)) (area ((...)))...
+	(dynamic-graphs-get-rects-sexp (cddr res) raw-x raw-y))))
+
+(defun dynamic-graphs-event-node (e)
+  "Get a href value of an event E.
+
+First a cmapx file and then imap file is tried to get the data.  The
+coordinates are scaled to reflect image zooming."
+  (let* ((pos (posn-x-y (event-start e)))
+	 (base (and buffer-file-name (file-name-sans-extension buffer-file-name)))
+	 (cmapx-file (and base (concat (file-name-sans-extension buffer-file-name) ".cmapx")))
+	 (imap-file (and base (concat (file-name-sans-extension buffer-file-name) ".imap")))
+	 (scale (dynamic-graphs-get-scale (get-char-property (point-min) 'display)))
+	 (x (* (car pos) scale))
+	 (y (* (cdr pos) scale)))
+    (cond
+     (dynamic-graphs-parsed (dynamic-graphs-get-rects-sexp dynamic-graphs-parsed x y))
+     ((file-readable-p cmapx-file) (dynamic-graphs-get-rects-cmapx cmapx-file x y))
+     ((file-readable-p imap-file) (dynamic-graphs-get-rects-imap imap-file x y))
+     (t (error "Node map not found")))))
 
 (defun dynamic-graphs-shift-focus-or-follow-link (e)
   "Follow link or shift root node.
 
-If the node in image has URL in form of \"id:something\", there
-is a specific `dynamic-graphs-make-graph-fn' and this is first
-click, make it new root node.
+If the node in image has id set (cmapx only) or URL in form of
+\"id:something\", there is a specific `dynamic-graphs-make-graph-fn'
+and this is first click, make it new root node.
 
 Otherwise, follow the URL with the the `dynamic-graphs-follow-link-fn'.
 
 Argument E is the event."
   (interactive "@e")
-  (let* ((pos (posn-x-y (event-start e)))
-	 (imapfile (concat (file-name-sans-extension buffer-file-name) ".imap"))
-	 (res (dynamic-graphs-get-rects imapfile (car pos) (cdr pos))))
+  (let-alist (dynamic-graphs-event-node e)
     (cond
-     ((and res
+;;; This does not work well: neither .id nor .title in general match
+;;; node name. Would be nice to have it work, though.
+
+;;     ((and (= (event-click-count e) 1))
+;;      (when (and .href (sit-for 0.2 t))
+;;	;; wait for second click
+;;	(dynamic-graphs-display-graph (file-name-base) (or .alt .title))))
+     ((and .href
 	   (not (eql dynamic-graphs-make-graph-fn (default-value 'dynamic-graphs-make-graph-fn)))
-	   (= (event-click-count e) 1) (= 3 (cl-mismatch res "id:")))
-      (dynamic-graphs-display-graph (file-name-base) (substring res 3)))
-     (res (funcall dynamic-graphs-follow-link-fn res)))))
-
-(defun dynamic-graphs-ignore (event-or-node)
-  "Work in progress, do not use.
-
-EVENT-OR-NODE determines a node to add to the ignore list."
-  (interactive "@e")
-  (when (eventp event-or-node)
-    (let* ((pos (posn-x-y (event-start event-or-node)))
-	   (imapfile (concat (file-name-sans-extension buffer-file-name) ".imap"))
-	   (res (dynamic-graphs-get-rects imapfile (car pos) (cdr pos))))
-      (setf event-or-node
-	    (when (and res (= 3 (cl-mismatch res "id:")))
-	      (substring res 3)))))
-  (when event-or-node
-    (push event-or-node dynamic-graphs-ignore-ids)
-    (dynamic-graphs-display-graph)))
+	   (= (event-click-count e) 1) (= 3 (cl-mismatch .href "id:")))
+      (when (sit-for 0.2 t)
+	;; wait for second click. What is proper variable for timing?
+	(dynamic-graphs-display-graph (file-name-base (buffer-name)) (substring .href 3))))
+     (.href (funcall dynamic-graphs-follow-link-fn .href)))))
 
 ;;; Key handlers
 (defun dynamic-graphs-zoom-by-key (&optional keys)
@@ -457,10 +525,9 @@ EVENT-OR-NODE determines a node to add to the ignore list."
     (define-key km "!" 'dynamic-graphs-save-gv)
     (define-key km "p" 'dynamic-graphs-save-pdf)
     (define-key km "/" 'dynamic-graphs-clean-root)
+    (define-key km "?" 'dynamic-graphs-help)
 
     km))
-					;(define-key dynamic-graphs-keymap (kbd "<S-mouse-3>") 'dynamic-graphs-ignore)
-					;(define-key dynamic-graphs-keymap (kbd "<S-down-mouse-3>") 'dynamic-graphs-ignore)
 
 (define-minor-mode dynamic-graphs-graph-mode "Local mode for dynamic images.
 
@@ -470,6 +537,19 @@ to see less or more distant nodes.
 \\{dynamic-graphs-keymap}" nil "(dyn)" dynamic-graphs-keymap
 (setq-local revert-buffer-function (lambda (_a _b)
 				     (dynamic-graphs-display-graph))))
+
+(defun dynamic-graphs-help ()
+  "Experimental: show alt texts or href on nodes."
+  (interactive)
+  (track-mouse
+    (let ((event))
+      (while (and
+	      (setq event (read-event))
+	      (mouse-movement-p event))
+	(let-alist (dynamic-graphs-event-node event)
+	  (when (and (or .alt .href)
+		     (sit-for 0.3))
+	    (tooltip-show (or (and (> (length .alt) 0) .alt) .href))))))))
 
 (provide 'dynamic-graphs)
 ;;; dynamic-graphs.el ends here
