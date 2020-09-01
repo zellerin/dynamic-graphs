@@ -169,7 +169,8 @@ be changed dynamically."
 ;;; Helper functions
 (defun dynamic-graphs-get-scale (image)
   "Get scale of the IMAGE."
-  (let ((size (and image (image-size image t))))
+  (let ((size (and image (image-size image t)))
+	(src-type (if (member :file image) :file :data)))
     (if (and image
 	     (eq (car image) 'image)
 	     ;; 27.1 support
@@ -177,8 +178,10 @@ be changed dynamically."
 		 (eq (plist-get (cdr image) :type) 'imagemagick)))
 	;; see comment i n image.c for compute_image_size: -1 x -1 is
 	;; native
-	(let* ((full-image (create-image (plist-get (cdr image) :data)
-					 'imagemagick t :width -1 :height -1))
+	(let* ((full-image (create-image (plist-get (cdr image) src-type)
+					 (plist-get (cdr image) :type)
+					 (eq src-type :data)
+					   :width -1 :height -1))
 	       (full-size
 		(progn (image-flush full-image)
 		       (image-size full-image t))))
