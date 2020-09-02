@@ -103,7 +103,15 @@ does not compete on this; it tries to take existing .gv files (or
 buffers, or other, maybe large and generated sources) and visualize
 them inside Emacs with some styling and with interactive features.
 
+There is a [[https://raw.github.com/rodw/gvpr-lib/master/extra/gvpr-mode.el][gvpr-mode]] package for editing gvpr files on Melpa.
+
+One can use built-in `image-mode' to view a gv file as an image
+(processed by dot, and no clickable links).
+
 * Some Known bugs
 - The code to get URL from imap file works only for rectangles
 - The code to get scale of image is too complicated and relies on
   undocumented, but I do not know how to do it better
+- The code could use tests and then refactorization
+- The way that the permament file local variables are used to maintain
+  state between iterations does not seem satisfactory
