@@ -92,7 +92,7 @@ clicks on nodes with corresponding record in the imap file are
 interpreted by ~browse-url~ command (or, in general, by current
 ~dynamic-graphs-follow-link-fn~) and the link is open
 
-You can try it on example.pmg in the examples directory; clicking to A
+You can try it on example.png in the examples directory; clicking to A
 or B should lead you to example web page or this repo on github.
 
 ** Call graph
@@ -143,3 +143,7 @@ One can use built-in `image-mode' to view a gv file as an image
 - The code could use tests and then refactorization
 - The way that the permament file local variables are used to maintain
   state between iterations does not seem satisfactory
+
+* Tested on
+- Windows 10 and graphviz 2.38 (old...)
+- Fedora 33 and graphviz from repositories
