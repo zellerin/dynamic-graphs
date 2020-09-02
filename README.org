@@ -96,29 +96,40 @@ You can try it on example.png in the examples directory; clicking to A
 or B should lead you to example web page or this repo on github.
 
 ** Call graph
-When the file was byte-compiled with ~byte-compile-generate-call-tree~ set, clickable call graph can be displayed using
-#+begin_src emacs-lisp
-(dynamic-graphs-display-graph "callers" nil
-			      (lambda ()
-				(insert "digraph calls {\n")
-				(cl-flet ((d-t-p (var)
-						 (= (cl-mismatch (symbol-name var)  "dynamic-graphs") (length "dynamic-graphs")))
-					  (shorten (var)
-						   (concat ":" (substring (symbol-name var) (1+ (length "dynamic-graphs"))))))
-				      (dolist (item byte-compile-call-tree)
-					(when (d-t-p (car item))
-					  (insert (format "%S [command=%s]\n"
-							  (shorten (car item))
-							  (commandp (car item))))
-					  (dolist (calls (nth 2 item))
-					    (when (d-t-p calls)
-					      (insert (format "\"%s\" -> \"%s\"\n"
-							      (shorten (car item))
-							      (shorten calls))))))))
-				(insert "}\n"))
+Following function can prepare and display clickable call graph of an
+emacs lisp file.
 
-			      '(default boxize "N [command==\"t\"]{style=\"filled\"} N {URL=sprintf(\"help:dynamic-graphs-%s\", substr(name, 1))} "))
+#+begin_src emacs-lisp :lexical t
+  (defun call-graph-file ()
+    (interactive)
+    (let ((byte-compile-generate-call-tree t)
+	  (base (file-name-base (buffer-file-name))))
+	  (save-window-excursion
+	    (byte-compile-file (buffer-file-name)))
+      (dynamic-graphs-display-graph "callers" nil
+				    (lambda ()
+				      (insert "digraph calls {\n")
+				      (cl-flet ((d-t-p (var)
+						       (equal (cl-mismatch (symbol-name var) base) (length base)))
+						(shorten (var)
+							 (concat ":" (substring (symbol-name var) (1+ (length base))))))
+					(dolist (item byte-compile-call-tree)
+					  (when (d-t-p (car item))
+					    (insert (format "%S [command=%S, label=%S]\n"
+							    (symbol-name (car item))
+							    (commandp (car item))
+							    (shorten (car item))))
+					    (dolist (calls (nth 2 item))
+					      (when (d-t-p calls)
+						(insert (format "\"%s\" -> \"%s\"\n"
+								(symbol-name (car item))
+								calls)))))))
+				      (insert "}\n"))
+				    '(default boxize "N [command==\"t\"]{style=\"filled\"} N {URL=sprintf(\"help:%s\", name)} "))))
 #+end_src
+
+#+RESULTS:
+: call-graph-file
 
 [[./images/callers.png]]
 
