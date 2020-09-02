@@ -293,10 +293,10 @@ Return the graph as the string (mainly for debugging purposes)."
     (setq-local dynamic-graphs-parsed
 	  (with-temp-buffer
 	    (insert code)
-	    (dynamic-graphs-filter cmd "-T" "cmapx")
+	    (dynamic-graphs-cmd cmd t '(t nil) nil "-T" "cmapx")
 	    (let ((p (libxml-parse-xml-region (point-min) (point-max))))
 	      (unless (eq (car p) 'map)
-		(error "Cmapx parse unexpected situation: %s" p))
+		(error "Cmapx parse unexpected situation: %s\n%s" p (buffer-string)))
 	      (cddr p))))
     code))
 
@@ -322,13 +322,14 @@ Return the graph as the string (mainly for debugging purposes)."
 Arguments `BASE-FILE-NAME', `ROOT', `MAKE-GRAPH-FN' and `FILTERS' are as
 in `REBUILD-GRAPH'"
   (switch-to-buffer (concat base-file-name ".png")) ; just to be sure
-  (set-buffer-multibyte nil)
   (let ((inhibit-read-only t))
     (delete-region (point-min) (point-max)))
+  (set-buffer-multibyte t)
   (insert (dynamic-graphs-rebuild-graph base-file-name root make-graph-fn filters))
-     (let ((coding-system-for-read 'no-conversion))
-       (dynamic-graphs-filter dynamic-graphs-cmd "-T" "png"))
-     (image-mode)
+  (set-buffer-multibyte nil)
+  (let ((coding-system-for-read 'no-conversion))
+       (dynamic-graphs-filter dynamic-graphs-cmd "-T" "png")
+       (image-mode))
      (setq-local dynamic-graphs-filters filters)
      (setq-local dynamic-graphs-root root)
      (setq-local dynamic-graphs-make-graph-fn make-graph-fn)
