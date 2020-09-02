@@ -95,6 +95,34 @@ interpreted by ~browse-url~ command (or, in general, by current
 You can try it on example.pmg in the examples directory; clicking to A
 or B should lead you to example web page or this repo on github.
 
+** Call graph
+When the file was byte-compiled with ~byte-compile-generate-call-tree~ set, clickable call graph can be displayed using
+#+begin_src emacs-lisp
+(dynamic-graphs-display-graph "callers" nil
+			      (lambda ()
+				(insert "digraph calls {\n")
+				(cl-flet ((d-t-p (var)
+						 (= (cl-mismatch (symbol-name var)  "dynamic-graphs") (length "dynamic-graphs")))
+					  (shorten (var)
+						   (concat ":" (substring (symbol-name var) (1+ (length "dynamic-graphs"))))))
+				      (dolist (item byte-compile-call-tree)
+					(when (d-t-p (car item))
+					  (insert (format "%S [command=%s]\n"
+							  (shorten (car item))
+							  (commandp (car item))))
+					  (dolist (calls (nth 2 item))
+					    (when (d-t-p calls)
+					      (insert (format "\"%s\" -> \"%s\"\n"
+							      (shorten (car item))
+							      (shorten calls))))))))
+				(insert "}\n"))
+
+			      '(default boxize "N [command==\"t\"]{style=\"filled\"} N {URL=sprintf(\"help:dynamic-graphs-%s\", substr(name, 1))} "))
+#+end_src
+
+[[./images/callers.png]]
+
+
 * Relation to other packages
 There is a [[https://github.com/ppareit/graphviz-dot-mode][graphviz-dot-mode]] package on Melpa that "helps you to
 create .dot or .gv files containing syntax compatible with Graphviz
