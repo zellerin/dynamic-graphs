@@ -1,0 +1,22 @@
+(ert-deftest dynamic-graphs-simple ()
+  (dynamic-graphs-display-graph "ert" nil (lambda () (insert "digraph foo {A->B}"))  '("N {foo=\"bar\"}"))
+  (should (equal (buffer-substring-no-properties 2 5) "PNG")))
+
+(ert-deftest dynamic-graphs-multibyte ()
+  (dynamic-graphs-display-graph "ert" nil (lambda () (insert "digraph foo {A->B [label=\"ěščřž\"]}"))
+				'("N {foo=\"bar\"}"))
+  (should (equal (buffer-substring-no-properties 2 5) "PNG")))
+
+(ert-deftest dynamic-graphs-url ()
+  (dynamic-graphs-display-graph "ert" nil (lambda () (insert "digraph foo {A [URL=\"ěščřž\"] A->B}"))
+				'("N {foo=\"bar\"}"))
+  (should (equal (buffer-substring-no-properties 2 5) "PNG"))
+  (should (cl-find "A" dynamic-graphs-parsed :key (lambda (a) (cdr (assoc 'title (cadr a))))
+		   :test 'equal)))
+
+(ert-deftest dynamic-graphs-url ()
+  (dynamic-graphs-display-graph "ert" nil (lambda () (insert "digraph foo {A [URL=\"ěščřž\"] A->B}"))
+				'("N {foo=\"bar\"}"))
+  (should (equal (buffer-substring-no-properties 2 5) "PNG"))
+  (should (cl-find "A" dynamic-graphs-parsed :key (lambda (a) (cdr (assoc 'title (cadr a))))
+		   :test 'equal)))
