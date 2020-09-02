@@ -92,8 +92,47 @@ clicks on nodes with corresponding record in the imap file are
 interpreted by ~browse-url~ command (or, in general, by current
 ~dynamic-graphs-follow-link-fn~) and the link is open
 
-You can try it on example.pmg in the examples directory; clicking to A
+You can try it on example.png in the examples directory; clicking to A
 or B should lead you to example web page or this repo on github.
+
+** Call graph
+Following function can prepare and display clickable call graph of an
+emacs lisp file.
+
+#+begin_src emacs-lisp :lexical t
+  (defun call-graph-file ()
+    (interactive)
+    (let ((byte-compile-generate-call-tree t)
+	  (base (file-name-base (buffer-file-name))))
+	  (save-window-excursion
+	    (byte-compile-file (buffer-file-name)))
+      (dynamic-graphs-display-graph "callers" nil
+				    (lambda ()
+				      (insert "digraph calls {\n")
+				      (cl-flet ((d-t-p (var)
+						       (equal (cl-mismatch (symbol-name var) base) (length base)))
+						(shorten (var)
+							 (concat ":" (substring (symbol-name var) (1+ (length base))))))
+					(dolist (item byte-compile-call-tree)
+					  (when (d-t-p (car item))
+					    (insert (format "%S [command=%S, label=%S]\n"
+							    (symbol-name (car item))
+							    (commandp (car item))
+							    (shorten (car item))))
+					    (dolist (calls (nth 2 item))
+					      (when (d-t-p calls)
+						(insert (format "\"%s\" -> \"%s\"\n"
+								(symbol-name (car item))
+								calls)))))))
+				      (insert "}\n"))
+				    '(default boxize "N [command==\"t\"]{style=\"filled\"} N {URL=sprintf(\"help:%s\", name)} "))))
+#+end_src
+
+#+RESULTS:
+: call-graph-file
+
+[[./images/callers.png]]
+
 
 * Relation to other packages
 There is a [[https://github.com/ppareit/graphviz-dot-mode][graphviz-dot-mode]] package on Melpa that "helps you to
@@ -103,7 +142,19 @@ does not compete on this; it tries to take existing .gv files (or
 buffers, or other, maybe large and generated sources) and visualize
 them inside Emacs with some styling and with interactive features.
 
+There is a [[https://raw.github.com/rodw/gvpr-lib/master/extra/gvpr-mode.el][gvpr-mode]] package for editing gvpr files on Melpa.
+
+One can use built-in `image-mode' to view a gv file as an image
+(processed by dot, and no clickable links).
+
 * Some Known bugs
 - The code to get URL from imap file works only for rectangles
 - The code to get scale of image is too complicated and relies on
   undocumented, but I do not know how to do it better
+- The code could use tests and then refactorization
+- The way that the permament file local variables are used to maintain
+  state between iterations does not seem satisfactory
+
+* Tested on
+- Windows 10 and graphviz 2.38 (old...)
+- Fedora 33 and graphviz from repositories
