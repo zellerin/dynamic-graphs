@@ -322,6 +322,7 @@ Return the graph as the string (mainly for debugging purposes)."
 Arguments `BASE-FILE-NAME', `ROOT', `MAKE-GRAPH-FN' and `FILTERS' are as
 in `REBUILD-GRAPH'"
   (switch-to-buffer (concat base-file-name ".png")) ; just to be sure
+  (set-buffer-multibyte nil)
   (let ((inhibit-read-only t))
     (delete-region (point-min) (point-max)))
   (insert (dynamic-graphs-rebuild-graph base-file-name root make-graph-fn filters))
