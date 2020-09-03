@@ -133,6 +133,57 @@ emacs lisp file.
 
 [[./images/callers.png]]
 
+** Call graph (again)
+
+This is similar to the previous example, but a generic graph generating
+function is factored out:
+#+begin_src emacs-lisp :results none :lexical t
+  (cl-defun dynamic-graphs-make-graph-from-list (name list filters &key params (name-fn #'car) (links-fn #'cadr) (props-fn #'cddr))
+    (dynamic-graphs-display-graph name nil
+				  (lambda ()
+				    (insert (format "digraph %S {\n" name))
+				    (dolist (par params)
+				      (insert (format "%s=%S\n" (car par) (cdr par))))
+				    (dolist (item list)
+				      (let ((close ?\] )
+					    (name (funcall name-fn item))
+					    (props (funcall props-fn item)))
+					(insert (format "\n%S" name))
+					(when props
+					  (insert " [")
+					  (dolist (prop props)
+					    (insert (format "%s=%S%c" (car prop) (cdr prop) close))
+					    (setq close ?,)))
+					(insert "\n")
+					(dolist (link (funcall links-fn item))
+					  (insert (format "\t%S -> %S\n" name link)))))
+				    (insert "}\n"))
+				  filters))
+#+end_src
+
+and more is done via gvpr filter.
+#+begin_src emacs-lisp :var gvpr=call-graph-gvpr :display=none :lexical t
+  (defun call-graph-ii ()
+    (interactive)
+    (let ((byte-compile-generate-call-tree t)
+	  (base (file-name-base (buffer-file-name))))
+      (save-window-excursion
+	(byte-compile-file (buffer-file-name)))
+      (dynamic-graphs-make-graph-from-list base byte-compile-call-tree (list gvpr 'debug)
+					   :params `((prefix . ,base)
+						     (label . "Call graph. Gray are commands, : stands for package prefix."))
+					   :props-fn  (lambda (a) (list (cons 'command (commandp (car a)))))
+					   :name-fn (lambda (a) (symbol-name (car a)))
+					   :links-fn (lambda (a) (mapcar #'symbol-name (caddr a))))))
+#+end_src
+
+#+NAME: call-graph-gvpr
+#+begin_example gvpr
+N{ shape="box"}
+N [command=="t"] {style="filled, rounded"}
+N [0==match(name, $O.prefix)]{label=":"+substr(name, (1 + length($O.prefix)))}
+N [0!=match(name, "dynamic-")] {delete(root, $)}
+#+end_example
 
 * Relation to other packages
 There is a [[https://github.com/ppareit/graphviz-dot-mode][graphviz-dot-mode]] package on Melpa that "helps you to
