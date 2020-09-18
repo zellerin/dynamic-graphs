@@ -134,6 +134,9 @@ emacs lisp file.
 [[./images/callers.png]]
 
 ** Call graph (again)
+   :PROPERTIES:
+   :ID:       e669ffc6-33b2-4739-939b-953e958cbc2c
+   :END:
 
 This is similar to the previous example, but a generic graph generating
 function is factored out:
@@ -145,15 +148,16 @@ function is factored out:
 				    (dolist (par params)
 				      (insert (format "%s=%S\n" (car par) (cdr par))))
 				    (dolist (item list)
-				      (let ((close ?\] )
+				      (let ((open ?\[ )
 					    (name (funcall name-fn item))
 					    (props (funcall props-fn item)))
 					(insert (format "\n%S" name))
 					(when props
-					  (insert " [")
+					  (insert " ")
 					  (dolist (prop props)
-					    (insert (format "%s=%S%c" (car prop) (cdr prop) close))
-					    (setq close ?,)))
+					    (insert (format "%c%s=%S" open (car prop) (cdr prop)))
+					    (setq open ?,))
+					  (insert "]"))
 					(insert "\n")
 					(dolist (link (funcall links-fn item))
 					  (insert (format "\t%S -> %S\n" name link)))))
@@ -170,16 +174,19 @@ and more is done via gvpr filter.
       (save-window-excursion
 	(byte-compile-file (buffer-file-name)))
       (dynamic-graphs-make-graph-from-list base byte-compile-call-tree (list gvpr 'debug)
-					   :params `((prefix . ,base)
-						     (label . "Call graph. Gray are commands, : stands for package prefix."))
+					   :params `((prefix . ,base))
 					   :props-fn  (lambda (a) (list (cons 'command (commandp (car a)))))
 					   :name-fn (lambda (a) (symbol-name (car a)))
 					   :links-fn (lambda (a) (mapcar #'symbol-name (caddr a))))))
 #+end_src
 
+#+RESULTS:
+: call-graph-ii
+
 #+NAME: call-graph-gvpr
 #+begin_example gvpr
-N{ shape="box"}
+N { shape="box"}
+BEG_G {label="Call graph for " + $O.prefix + " . Gray are commands, : stands for package prefix."}
 N [command=="t"] {style="filled, rounded"}
 N [0==match(name, $O.prefix)]{label=":"+substr(name, (1 + length($O.prefix)))}
 N [0!=match(name, "dynamic-")] {delete(root, $)}
