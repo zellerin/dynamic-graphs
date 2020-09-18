@@ -1,0 +1,33 @@
+;;; -*- mode: gvpr; -*-
+
+// Expect name as x,y, and set position apropriately
+BEG_G {top=0.0; xscale=3.0; yscale=1.0; density=0.93}
+
+// node with span set are shown on top as cds and span several
+// columns. Start property should be set to the first column that they span.
+N [span] {
+  class="header";
+  shape="cds";
+  fillcolor="#00338d";
+  width= 1.0*$G.xscale * span - (1.0-$G.density) * $G.xscale;
+  pos=sprintf("%f,%f!",(1.0*start+0.5*span-0.5)*$G.xscale,0.0+$G.top+$G.yscale)
+}
+N {
+  style="filled", fillcolor="#a6a6a6",
+  fontcolor="white", fontname="Calibri",
+  height=1.0*$G.density*$G.yscale, fontsize="15pt"
+  }
+
+N [class!="header"]
+  {
+   width=1.0*$G.xscale*$G.density;
+   shape="box";
+   label=name+"\n"+gsub(label, "  ", "\n");
+   int x,y;
+   sscanf(name,"%d.%d", &x, &y);
+   pos=sprintf("%f,%f!", 1.0*$G.xscale*x, $G.top-1.0*y*$G.yscale);
+   fillcolor="#0091da"
+   }
+
+// ,0 lines are headers
+N [class=="header" || 0<match(name, ".0")] {fillcolor="#00338d"}
