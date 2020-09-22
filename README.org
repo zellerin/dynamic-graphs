@@ -99,7 +99,7 @@ or B should lead you to example web page or this repo on github.
 Following function can prepare and display clickable call graph of an
 emacs lisp file.
 
-#+begin_src emacs-lisp :lexical t
+#+begin_src emacs-lisp :lexical t :results none
   (defun call-graph-file ()
     (interactive)
     (let ((byte-compile-generate-call-tree t)
@@ -128,10 +128,7 @@ emacs lisp file.
 				    '(default boxize "N [command==\"t\"]{style=\"filled\"} N {URL=sprintf(\"help:%s\", name)} "))))
 #+end_src
 
-#+RESULTS:
-: call-graph-file
-
-[[./images/callers.png]]
+[[images/callers.png]]
 
 ** Call graph (again)
    :PROPERTIES:
@@ -166,31 +163,19 @@ function is factored out:
 #+end_src
 
 and more is done via gvpr filter.
-#+begin_src emacs-lisp :var gvpr=call-graph-gvpr :display=none :lexical t :results none
+#+begin_src emacs-lisp :display=none :lexical t :results none
   (defun call-graph-ii ()
     (interactive)
     (let ((byte-compile-generate-call-tree t)
 	  (base (file-name-base (buffer-file-name))))
       (save-window-excursion
 	(byte-compile-file (buffer-file-name)))
-      (dynamic-graphs-make-graph-from-list base byte-compile-call-tree (list gvpr 'debug)
+      (dynamic-graphs-make-graph-from-list base byte-compile-call-tree (list "call-graph.gvpr")
 					   :params `((prefix . ,base))
 					   :props-fn  (lambda (a) (list (cons 'command (commandp (car a)))))
 					   :name-fn (lambda (a) (symbol-name (car a)))
 					   :links-fn (lambda (a) (mapcar #'symbol-name (caddr a))))))
 #+end_src
-
-#+RESULTS:
-: call-graph-ii
-
-#+NAME: call-graph-gvpr
-#+begin_example gvpr
-BEG_G {label="Call graph for " + prefix + ". Green are commands, : stands for package prefix."}
-N{ shape="box"}
-N [command=="t"] {style="filled, rounded", fillcolor="green"}
-N [0==match(name, $O.prefix)]{URL="help:" + name ,label=":"+substr(name, (1 + length($O.prefix)))}
-N [0!=match(name, $O.prefix)] {delete(root, $)}
-#+end_example
 
 * Relation to other packages
 There is a [[https://github.com/ppareit/graphviz-dot-mode][graphviz-dot-mode]] package on Melpa that "helps you to

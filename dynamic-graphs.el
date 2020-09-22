@@ -59,6 +59,8 @@
 ;;; Code:
 ;;
 ;;; Customizable variable
+(require 'seq)
+
 (defcustom dynamic-graphs-filters '(3 default remove-cycles)
   "Default filter for dynamic-graphs.
 
@@ -204,20 +206,30 @@ Throw error if it failed."
 Throw error if it failed."
   (apply #'dynamic-graphs-cmd name t t nil pars))
 
+(defcustom dynamic-graphs-filter-path (list "." (concat default-directory "filters/"))
+  "List of paths where to find filters."
+  :group 'dynamic-graphs
+  :type '(repeat directory))
 
 (defun dynamic-graphs-apply-filters (filters)
   "Apply FILTERS on current buffer.
 
  See `dynamic-graphs-filters' for the syntax."
-  (let ((root dynamic-graphs-root))
+  (let ((root dynamic-graphs-root)
+	(filter-file))
     (dolist (filter (or filters dynamic-graphs-filters))
       (when (symbolp filter)
 	(setq filter
 	      (or (cdr (assoc filter dynamic-graphs-transformations))
 		  filter)))
       (cond
-       ((and (stringp filter) (file-exists-p (expand-file-name filter)))
-	(dynamic-graphs-filter "gvpr" "-c" "-qf" filter))
+       ((and (stringp filter)
+	     (setq filter-file (seq-some (lambda (d)
+					   ;; reinventing missing cl-probe
+					   (let ((e (expand-file-name filter d)))
+					     (if (file-exists-p e) e)))
+				   dynamic-graphs-filter-path)))
+	(dynamic-graphs-filter "gvpr" "-c" "-qf" filter-file))
        ((and (stringp filter))
 	(dynamic-graphs-filter "gvpr" "-c" "-q" filter))
        ((integerp filter)

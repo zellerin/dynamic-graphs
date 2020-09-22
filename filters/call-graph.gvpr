@@ -1,0 +1,13 @@
+// -*- mode:gvpr -*-
+
+// Example filter for call-graph-ii function in the README file.
+BEG_G {label="Call graph for " + prefix + ".\nGreen are commands.
+: stands for package prefix.\nClick on function to show help."}
+
+N 	{shape="box"}
+N [command=="t"]
+	{style="filled, rounded", fillcolor="green"}
+N [0==match(name, $O.prefix)]
+  	{URL="help:" + name ,label=":"+substr(name, (1 + length($O.prefix)))}
+N [0!=match(name, $O.prefix)]
+        {delete(root, $)}
