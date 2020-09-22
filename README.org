@@ -166,7 +166,7 @@ function is factored out:
 #+end_src
 
 and more is done via gvpr filter.
-#+begin_src emacs-lisp :var gvpr=call-graph-gvpr :display=none :lexical t
+#+begin_src emacs-lisp :var gvpr=call-graph-gvpr :display=none :lexical t :results none
   (defun call-graph-ii ()
     (interactive)
     (let ((byte-compile-generate-call-tree t)
@@ -185,11 +185,11 @@ and more is done via gvpr filter.
 
 #+NAME: call-graph-gvpr
 #+begin_example gvpr
-N { shape="box"}
-BEG_G {label="Call graph for " + $O.prefix + " . Gray are commands, : stands for package prefix."}
-N [command=="t"] {style="filled, rounded"}
-N [0==match(name, $O.prefix)]{label=":"+substr(name, (1 + length($O.prefix)))}
-N [0!=match(name, "dynamic-")] {delete(root, $)}
+BEG_G {label="Call graph for " + prefix + ". Green are commands, : stands for package prefix."}
+N{ shape="box"}
+N [command=="t"] {style="filled, rounded", fillcolor="green"}
+N [0==match(name, $O.prefix)]{URL="help:" + name ,label=":"+substr(name, (1 + length($O.prefix)))}
+N [0!=match(name, $O.prefix)] {delete(root, $)}
 #+end_example
 
 * Relation to other packages
