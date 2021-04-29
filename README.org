@@ -3,49 +3,77 @@
 [[https://melpa.org/#/dynamic-graphs][https://melpa.org/packages/dynamic-graphs-badge.svg]]
 
 * Motivations
-While it takes only few lines to make a graph in graph file language,
-it takes more effort to make it visually aligned with the rest of its
-presentation.
+While it takes only few lines to make a graph in graph file language, it takes more effort to make it visually aligned with the rest of its presentation.
 
-For me, the best way is to separate graph definition in a .gv file
-from definition of fonts, colors etc that can be kept in a .gvpr
-file that can be used as a style file.
+For me, the best way is to separate graph definition in a .gv file from definition of fonts, colors etc that can be kept in a .gvpr file that can be used as a style file.
 
-Second motivations are big graphs. Graphviz does nice job of
-presenting them as whole, but in many case I want to be able to zoom
-near some particular node (original motivation was displaying close
-nodes in linked org files).
+Second motivation is peeking into parts of large graphs. Graphviz does nice job of presenting large graphs as whole, but in many case I want to be able to zoom near some particular node (original motivation was displaying close nodes in linked org files).
 
 * What this package does
-Make dynamic graphs: take a graph, apply some filters, and display
-it as an image. The graph can be either a function that inserts the
-graph (and is called for each redisplay), or a buffer that can
-change. An imap file is created in addition to the image so that
-clicks on image can be related to individual nodes (TODO: only for
-rectangles so far)
+Make dynamic graphs: take a graph, apply some filters, and display it as an image.
+
+The graph image to be inserted is created by a call to [[help:dynamic-graphs-display-graph][dynamic-graphs-display-graph]]. One of the parameters is a function that generates the graph description and inserts the graph code into the current buffer; Other parameters are the base name of the image buffer, identification of the root node, and filters to apply (see [[Filters]]).
+
+ #+begin_src elisp
+ (dynamic-graphs-display-graph "test" nil
+		    (lambda ()
+		      (insert "digraph Gr {A [URL=\"http://example.com\"] A -> B -> C -> A ->E->F->G}"))
+		    '(2 "N {style=\"filled, rounded\",fillcolor=\"green\"}" node-refs boxize default))
+ #+end_src
+
+ In addition to the image itself, information about node positions is created (cmapx), [[help:dynamic-graphs-parsed][stored in buffer-local variable]], and used to map clicks to actions.
+
+All the parameters are stored (locally) so that buffer can be reverted. It means that the function is re-evaluated on each buffer revert.
+
+As a convenience, [[help:dynamic-graphs-display-graph-buffer][dynamic-graphs-display-graph-buffer]] uses content of the current buffer as graph code.
 
 * Filters
-The filters can apply both enhancing operations (add colors, ...)
-and more complicated operations coded in gvpr. As a special case
-there is a filter that removes all nodes that are more distant than
-a parameter from a root node.
+The filters can apply both enhancing operations (add colors, ...)  and more complicated operations coded in gvpr. As a special case there is a filter that removes all nodes that are more distant than a parameter from a root node.
 
-See docstring for ~dynamic-graphs-filters~ for details about filters
+Filters are passed as a list to the entry functions. Each list item can be:
+- a string that "does not look like a path name", that is interpreted as a gvpr string
+- a path name that is interpreted as a gvpr file
+- symbol remove-cycles to remove cycles (this may be dangerous)
+- an integer, to remove nodes removed more than this number from the root node (if the root node is set).
+
+In addition, named filters may be defined in dynamic-graphs-transformations, and the names defined there can be used. These predefined transformations can be used out-of-the-box are somewhat reasonable:
+- boxize :: add shape=box to all nodes. Note that current imap interpretation handle only boxes
+- node-refs :: for nodes without URL set, set URL to ~id:name~.
+
+See documentation string for [[help:dynamic-graphs-filters][dynamic-graphs-filters]] for details.
 
 * Key bindings
-The image is displayed with a specialized minor mode.
-Predefined key bindings on the displayed image in this mode include:
+The graphs are claimed to be dynamic. As of now, it has two aspects:
+- When the underlying function (buffer content, other data source, ...) changes, the image itself changes.
+- The engine, root node, as well as filters can be changed on fly.
+
+In addition,
+
+To achieve this
+
+The image is displayed with a specialized minor mode.  Predefined key bindings on the displayed image in this mode include:
 - e (dynamic-graphs-set-engine) change grahviz engine (dot, circo, ...)
 - c (dynamic-graphs-remove-cycles) change whether cycles are removed
 - 1-9 (dynamic-graphs-zoom-by-key) set maximum displayed distance from a root node
-- mouse-1 (dynamic-graphs-shift-focus-or-follow-link) shift root node
-  or follow link defined in imap file - that is, in URL attribute of
-  the node.  Link is followed by customizable function, by default
-  `browse-url' - but `org-link-open-from-string' might be more
-  useful. See docstring for details.
+- mouse-1 (dynamic-graphs-shift-focus-or-follow-link) shift root node or follow link defined in imap file - that is, in URL attribute of the node.  Link is followed by customizable function, by default `browse-url' - but `org-link-open-from-string' might be more useful. See docstring for details.
 - ! saves current graph in a .gv file.
 - p saves current graph n pdf format.
-- / clears root.
+- / clears root,
+
+Subject to change (even more than the rest of package):
+- ? dynamic-graphs-help shows on mouse ID alt or href of node.
+- ds asks for a filter string and applies it,
+- dd asks for a filter from dynamic-graphs-transformations and applies it,
+- dp pops most recent filter added,
+- d0 clears filters to the default value.
+
+
+* TODOs and checks
+- Does  auto-revert-buffer work? If not, how to fix?
+- Fix non-rectangle areas
+- Document use on png file with imap file attached (or remove support for it to simplify code)
+- Improve debugging support (this *is* an issue)
+- Add useful compilers to gvpr snippet
 
 * Examples
 ** From function
