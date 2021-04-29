@@ -4,7 +4,7 @@
 ;;
 ;; Author: Tomas Zellerin <tomas@zellerin.cz>
 ;; Keywords: tools
-;; Package-version: 0.93
+;; Package-Version: 0.94
 ;; URL: https://github.com/zellerin/dynamic-graphs
 ;; Package-Requires: ((emacs "26.1"))
 ;;
@@ -60,8 +60,9 @@
 ;;
 ;;; Customizable variable
 (require 'seq)
+(require 'cl-lib)
 
-(defcustom dynamic-graphs-filters '(3 default remove-cycles)
+(defcustom dynamic-graphs-filters '(3 default node-refs)
   "Default filter for dynamic-graphs.
 
 This should be list of filters.
@@ -76,7 +77,10 @@ This should be list of filters.
   `*messages*' buffer current graph.
 
 The variable is set buffer-local in the image buffers so that it can
-be changed dynamically."
+be changed dynamically.
+
+The default value somewhat arbitrarily sets kept distance to 3; this
+applies only when a root is set."
   :group 'dynamic-graphs
   :type '(repeat
 	  (choice (integer :tag "Maximum distance from root to keep")
@@ -153,7 +157,7 @@ Predefined cases include:
 - default :: sample simple transformation used in the default filter.
   User is expected to customize it based on the preferences, or change
   it to a style file.
-- node-ref :: add URL to each node based on its name.  This is needed
+- node-refs :: add URL to each node based on its name.  This is needed
   for moving root around."
   :group 'dynamic-graphs
   :type '(alist :key-type symbol :value-type string))
@@ -198,7 +202,11 @@ Throw error if it failed."
 	(res (apply #'call-process-region (point-min)
 		    (point-max) name pars)))
     (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
-      (error (format "failed %s: %s->%s" name before (buffer-string))))))
+      (let ((after (buffer-string)))
+	(switch-to-buffer "*dynamic-graph-source*")
+	(insert before)
+	(switch-to-buffer "*dynamic-graph-result*" after)
+	(error (format "failed %s: %s->%s" name before after))))))
 
 (defun dynamic-graphs-filter (name &rest pars)
   "Apply command NAME with PARS as a filter on the current buffer.
@@ -206,30 +214,20 @@ Throw error if it failed."
 Throw error if it failed."
   (apply #'dynamic-graphs-cmd name t t nil pars))
 
-(defcustom dynamic-graphs-filter-path (list "." (concat default-directory "filters/"))
-  "List of paths where to find filters."
-  :group 'dynamic-graphs
-  :type '(repeat directory))
 
 (defun dynamic-graphs-apply-filters (filters)
   "Apply FILTERS on current buffer.
 
  See `dynamic-graphs-filters' for the syntax."
-  (let ((root dynamic-graphs-root)
-	(filter-file))
+  (let ((root dynamic-graphs-root))
     (dolist (filter (or filters dynamic-graphs-filters))
       (when (symbolp filter)
 	(setq filter
 	      (or (cdr (assoc filter dynamic-graphs-transformations))
 		  filter)))
       (cond
-       ((and (stringp filter)
-	     (setq filter-file (seq-some (lambda (d)
-					   ;; reinventing missing cl-probe
-					   (let ((e (expand-file-name filter d)))
-					     (if (file-exists-p e) e)))
-				   dynamic-graphs-filter-path)))
-	(dynamic-graphs-filter "gvpr" "-c" "-qf" filter-file))
+       ((and (stringp filter) (file-exists-p (expand-file-name filter)))
+	(dynamic-graphs-filter "gvpr" "-c" "-qf" filter))
        ((and (stringp filter))
 	(dynamic-graphs-filter "gvpr" "-c" "-q" filter))
        ((integerp filter)
@@ -455,6 +453,9 @@ coordinates are scaled to reflect image zooming."
 	 (y (* (cdr pos) scale)))
     (cond
      (dynamic-graphs-parsed (dynamic-graphs-get-rects-sexp dynamic-graphs-parsed x y))
+     ;; If the entry was through dynamic-graphs entry points, :parsed
+     ;; always exists. So following is needed only when we do not
+     ;; start from the gv code.
      ((file-readable-p cmapx-file) (dynamic-graphs-get-rects-cmapx cmapx-file x y))
      ((file-readable-p imap-file) (dynamic-graphs-get-rects-imap imap-file x y))
      (t (error "Node map not found")))))
@@ -540,6 +541,10 @@ Argument E is the event."
     (define-key km "p" 'dynamic-graphs-save-pdf)
     (define-key km "/" 'dynamic-graphs-clean-root)
     (define-key km "?" 'dynamic-graphs-help)
+    (define-key km "ds" 'dynamic-graphs-add-filter-string)
+    (define-key km "dp" 'dynamic-graphs-pop-filter)
+    (define-key km "dd" 'dynamic-graphs-add-predefined-filter)
+    (define-key km "d0" 'dynamic-graphs-clean-filters)
 
     km))
 
@@ -564,6 +569,52 @@ to see less or more distant nodes.
 	  (when (and (or .alt .href)
 		     (sit-for 0.3))
 	    (tooltip-show (or (and (> (length .alt) 0) .alt) .href))))))))
+
+(defun dynamic-graphs-add-filter-string (filter)
+  "Add new filter string `FILTER` to current buffer list of filters."
+  (interactive "sGvpr code: ")
+  (push filter dynamic-graphs-filters)
+  (dynamic-graphs-display-graph))
+
+(defcustom dynamic-graphs-filter-string ""
+  "GVPR code to be applied by next dynamic-graphs-apply-filter.
+
+May be edited by `customize-variable`.
+
+May be set by removed dynamic-graphs filter.
+
+Can be reapplied by `dynamic-graphs-reapply-filter`.  This is NOT buffer local by design."
+  :group 'dynamic-graphs
+  :type 'string)
+
+(defun dynamic-graphs-pop-filter ()
+  "Remove most recent filter from current buffer list of filters.
+
+The removed filter is stored to dynamic-graphs-filter-string so that it can be edited or reapplied."
+  (interactive)
+  (setq dynamic-graphs-filter-string   (pop dynamic-graphs-filters))
+  (dynamic-graphs-display-graph)
+  (message "Popped %s" dynamic-graphs-filter-string))
+
+(defun dynamic-graphs-apply-filter ()
+  "Add dynamic-graphs-filter-string in current buffer."
+  (interactive)
+  (push dynamic-graphs-filter-string dynamic-graphs-filters )
+  (dynamic-graphs-display-graph))
+
+(defun dynamic-graphs-add-predefined-filter (filter)
+  "Add a predefined (in `dynamic-graphs-transformations`) filter `FILTER` to the current image."
+  (interactive (list (intern
+		      (completing-read "Add filter: " (mapcar #'car dynamic-graphs-transformations)
+				       nil t))))
+  (push filter dynamic-graphs-filters)
+  (dynamic-graphs-display-graph))
+
+(defun dynamic-graphs-clean-filters ()
+  "Set list of filters to default one."
+  (interactive)
+  (setq-local dynamic-graphs-filters (default-value 'dynamic-graphs-filters))
+  (dynamic-graphs-display-graph))
 
 (provide 'dynamic-graphs)
 ;;; dynamic-graphs.el ends here

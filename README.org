@@ -68,12 +68,6 @@ Subject to change (even more than the rest of package):
 - d0 clears filters to the default value.
 
 
-* TODOs and checks
-- Does  auto-revert-buffer work? If not, how to fix?
-- Fix non-rectangle areas
-- Document use on png file with imap file attached (or remove support for it to simplify code)
-- Improve debugging support (this *is* an issue)
-- Add useful compilers to gvpr snippet
 
 * Examples
 ** From function
@@ -225,6 +219,9 @@ One can use built-in `image-mode' to view a gv file as an image
 - The code could use tests and then refactorization
 - The way that the permament file local variables are used to maintain
   state between iterations does not seem satisfactory
+- Does  auto-revert-buffer work? If not, how to fix?
+- Improve debugging support (this *is* an issue)
+- Add useful compilers to gvpr snippet
 
 * Tested on
 - Windows 10 and graphviz 2.38 (old...)
