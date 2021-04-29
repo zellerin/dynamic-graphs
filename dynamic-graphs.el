@@ -4,7 +4,7 @@
 ;;
 ;; Author: Tomas Zellerin <tomas@zellerin.cz>
 ;; Keywords: tools
-;; Package-Version: 0.94
+;; Package-Version: 0.95
 ;; URL: https://github.com/zellerin/dynamic-graphs
 ;; Package-Requires: ((emacs "26.1"))
 ;;
@@ -73,8 +73,6 @@ This should be list of filters.
 - an integer that denotes that only nodes with distance from root less
   or equal to the number should be kept,
 - symbol `remove-cycles' that causes cycles removal,
-- symbol `debug' that does not filter the graph, but displays in the
-  `*messages*' buffer current graph.
 
 The variable is set buffer-local in the image buffers so that it can
 be changed dynamically.
@@ -87,8 +85,7 @@ applies only when a root is set."
 		  (string :tag "gvpr code to apply")
 		  (file :must-match t :tag "gvpr source file to apply")
 		  (const :tag "Remove cycles in graph" remove-cycles)
-		  (symbol :tag "Reference to dynamic-graphs-transformations")
-		  (const debug :tag "Dump transformed graph to *messages*"))))
+		  (symbol :tag "Reference to dynamic-graphs-transformations"))))
 
 (put 'dynamic-graphs-filters 'permanent-local t)
 
@@ -194,19 +191,39 @@ be changed dynamically."
 	  (/ (float (car full-size)) (car size)))
       1.0)))
 
-(defun dynamic-graphs-cmd (name &rest pars)
+(defun dynamic-graphs-cmd (name delete buffer &rest pars)
   "Apply command NAME with PARS as a filter on the current buffer.
 
-Throw error if it failed."
-  (let ((before (buffer-string))
-	(res (apply #'call-process-region (point-min)
-		    (point-max) name pars)))
-    (unless (or (zerop res) (and (equal name "acyclic") (< res 255)))
+If it fails, collect relevant data and throw an error"
+  (let* ((before (buffer-string))
+	 (errfile (make-temp-file "dynamic-graphs-error"))
+	 (res (apply #'call-process-region (point-min)
+		     (point-max) name delete (list buffer errfile) pars)))
+    (when
+	;; Graphviz tools mostly return 1 on error
+	;; however, acyclic returns 255
+	;; and gvpr can print error, make empty output and return 0
+	;; so I check whether there is some error output, but then
+	;; without -q some dummy warnings are printed, so -q is needed.
+	(or (and (equal name "gvpr")
+		 (< 0 (file-attribute-size (file-attributes errfile))))
+	    (and (>= res (if (equal name "acyclic") 255 1))))
+
       (let ((after (buffer-string)))
+	; insert fake image
+	(insert-file-literally "/tmp/small.png") ; display something
+	(normal-mode)
 	(switch-to-buffer "*dynamic-graph-source*")
+	(delete-region (point-min) (point-max))
 	(insert before)
+	(view-mode-enable)
 	(switch-to-buffer "*dynamic-graph-result*" after)
-	(error (format "failed %s: %s->%s" name before after))))))
+	(delete-region (point-min) (point-max))
+	(view-mode-enable)
+	(find-file-read-only errfile)
+	(user-error
+	 "failed %s %s; see *dynamic-graph-source*, *dynamic-graph-result* and  %s for details" name (cdr pars) errfile)))
+    (delete-file errfile)))
 
 (defun dynamic-graphs-filter (name &rest pars)
   "Apply command NAME with PARS as a filter on the current buffer.
@@ -227,9 +244,9 @@ Throw error if it failed."
 		  filter)))
       (cond
        ((and (stringp filter) (file-exists-p (expand-file-name filter)))
-	(dynamic-graphs-filter "gvpr" "-c" "-qf" filter))
+	(dynamic-graphs-filter "gvpr" "-qc" "f" filter))
        ((and (stringp filter))
-	(dynamic-graphs-filter "gvpr" "-c" "-q" filter))
+	(dynamic-graphs-filter "gvpr" "-qc"  filter))
        ((integerp filter)
 	(when root
 	  (dynamic-graphs-filter "dijkstra" root)
@@ -239,8 +256,6 @@ Throw error if it failed."
        ((eq filter 'remove-cycles)
 	(dynamic-graphs-filter "acyclic")
 	(dynamic-graphs-filter "tred"))
-       ((eq filter 'debug)
-	(message "Filters debug: %s" (buffer-string)))
        ((and (consp filter)
 	     (eq (car filter) 'ignore))
 	(delete-matching-lines (regexp-opt (cdr filter))
@@ -306,7 +321,8 @@ Return the graph as the string (mainly for debugging purposes)."
 	    (dynamic-graphs-cmd cmd t '(t nil) nil "-T" "cmapx")
 	    (let ((p (libxml-parse-xml-region (point-min) (point-max))))
 	      (unless (eq (car p) 'map)
-		(error "Cmapx parse unexpected situation: %s\n%s" p (buffer-string)))
+		(message "Cmapx parse unexpected situation: %s\n%s" p (buffer-string)))
+	      nil
 	      (cddr p))))
     code))
 
@@ -581,7 +597,7 @@ to see less or more distant nodes.
 
 May be edited by `customize-variable`.
 
-May be set by removed dynamic-graphs filter.
+May be set by dynamic-graphs-pop-filter.
 
 Can be reapplied by `dynamic-graphs-reapply-filter`.  This is NOT buffer local by design."
   :group 'dynamic-graphs
@@ -590,14 +606,14 @@ Can be reapplied by `dynamic-graphs-reapply-filter`.  This is NOT buffer local b
 (defun dynamic-graphs-pop-filter ()
   "Remove most recent filter from current buffer list of filters.
 
-The removed filter is stored to dynamic-graphs-filter-string so that it can be edited or reapplied."
+The removed filter is stored to `dynamic-graphs-filter-string` so that it can be edited or reapplied."
   (interactive)
   (setq dynamic-graphs-filter-string   (pop dynamic-graphs-filters))
   (dynamic-graphs-display-graph)
   (message "Popped %s" dynamic-graphs-filter-string))
 
 (defun dynamic-graphs-apply-filter ()
-  "Add dynamic-graphs-filter-string in current buffer."
+  "Add `dynamic-graphs-filter-string` in current buffer."
   (interactive)
   (push dynamic-graphs-filter-string dynamic-graphs-filters )
   (dynamic-graphs-display-graph))

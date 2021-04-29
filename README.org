@@ -220,7 +220,6 @@ One can use built-in `image-mode' to view a gv file as an image
 - The way that the permament file local variables are used to maintain
   state between iterations does not seem satisfactory
 - Does  auto-revert-buffer work? If not, how to fix?
-- Improve debugging support (this *is* an issue)
 - Add useful compilers to gvpr snippet
 
 * Tested on
