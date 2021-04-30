@@ -244,7 +244,7 @@ Throw error if it failed."
 		  filter)))
       (cond
        ((and (stringp filter) (file-exists-p (expand-file-name filter)))
-	(dynamic-graphs-filter "gvpr" "-qc" "f" filter))
+	(dynamic-graphs-filter "gvpr" "-qc" "-f" filter))
        ((and (stringp filter))
 	(dynamic-graphs-filter "gvpr" "-qc"  filter))
        ((integerp filter)
