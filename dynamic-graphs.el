@@ -61,6 +61,7 @@
 ;;; Customizable variable
 (require 'seq)
 (require 'cl-lib)
+(require 'view)
 
 (defcustom dynamic-graphs-filters '(3 default node-refs)
   "Default filter for dynamic-graphs.
@@ -213,9 +214,7 @@ If it fails, collect relevant data and throw an error"
 	    (and (>= res (if (equal name "acyclic") 255 1))))
 
       (let ((after (buffer-string)))
-	; insert fake image
-	(insert-file-literally "/tmp/small.png") ; display something
-	(normal-mode)
+	(insert errfile) ; display something
 	(switch-to-buffer "*dynamic-graph-source*")
 	(delete-region (point-min) (point-max))
 	(insert before)
@@ -321,7 +320,7 @@ Return the graph as the string (mainly for debugging purposes)."
     (setq-local dynamic-graphs-parsed
 	  (with-temp-buffer
 	    (insert code)
-	    (dynamic-graphs-cmd cmd t '(t nil) nil "-T" "cmapx")
+	    (dynamic-graphs-cmd cmd t t nil "-T" "cmapx")
 	    (let ((p (libxml-parse-xml-region (point-min) (point-max))))
 	      (unless (eq (car p) 'map)
 		(message "Cmapx parse unexpected situation: %s\n%s" p (buffer-string)))
