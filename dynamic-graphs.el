@@ -120,8 +120,9 @@ applies only when a root is set."
 I found `org-link-open-from-string' more useful than `browse-url', but if
 I set it as default, I would have to make org mode a dependency."
   :type '(choice
-	  (const browse-url)
-	  (const org-link-open-from-string)
+	  (const :tag "Open as web" browse-url)
+	  (const :tag "Open as org link" org-link-open-from-string)
+	  (const :tag "Just display the link" (lambda (a) (message "~s" a)))
 	  function)
   :group 'dynamic-graph)
 
