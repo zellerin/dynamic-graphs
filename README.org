@@ -45,8 +45,8 @@ See documentation string for [[help:dynamic-graphs-filters][dynamic-graphs-filte
 * Key bindings
 The graphs are claimed to be dynamic. As of now, it has two aspects:
 - When the underlying function (buffer content, other data source, ...) changes, the image itself changes.
-- The engine, root node, as well as filters can be changed on fly.
-
+- The engine, root node, as well as filters can be changed on fly. This can be done either by individual key bindings below, or in an interactive way using dynamic-graphs-customize-locals
+, bound to C. This uses widgets for local customization.
 In addition,
 
 To achieve this
@@ -58,7 +58,7 @@ The image is displayed with a specialized minor mode.  Predefined key bindings o
 - mouse-1 (dynamic-graphs-shift-focus-or-follow-link) shift root node or follow link defined in imap file - that is, in URL attribute of the node.  Link is followed by customizable function, by default `browse-url' - but `org-link-open-from-string' might be more useful. See docstring for details.
 - ! saves current graph in a .gv file.
 - p saves current graph n pdf format.
-- / clears root,
+- / clears root (also available through C)
 
 Subject to change (even more than the rest of package):
 - ? dynamic-graphs-help shows on mouse ID alt or href of node.

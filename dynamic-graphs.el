@@ -1,10 +1,10 @@
 ;;; dynamic-graphs.el --- Manipulation with graphviz graphs  -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2020  Tomas Zellerin
+;; Copyright (C) 2020, 2021  Tomas Zellerin
 ;;
 ;; Author: Tomas Zellerin <tomas@zellerin.cz>
 ;; Keywords: tools
-;; Package-Version: 0.95
+;; Package-Version: 1.0
 ;; URL: https://github.com/zellerin/dynamic-graphs
 ;; Package-Requires: ((emacs "26.1"))
 ;;
@@ -62,6 +62,7 @@
 (require 'seq)
 (require 'cl-lib)
 (require 'view)
+(require 'cus-edit)
 
 (defcustom dynamic-graphs-filters '(3 default node-refs)
   "Default filter for dynamic-graphs.
@@ -198,7 +199,8 @@ be changed dynamically."
 (defun dynamic-graphs-cmd (name delete buffer &rest pars)
   "Apply command NAME with PARS as a filter on the current buffer.
 
-If it fails, collect relevant data and throw an error"
+If it fails, collect relevant data and throw an error.
+DELETE and BUFFER are passed to CALL-PROCESS-REGION."
   (let* ((before (buffer-string))
 	 (errfile (make-temp-file "dynamic-graphs-error"))
 	 (res (apply #'call-process-region (point-min)
@@ -218,13 +220,13 @@ If it fails, collect relevant data and throw an error"
 	(switch-to-buffer "*dynamic-graph-source*")
 	(delete-region (point-min) (point-max))
 	(insert before)
-	(view-mode-enable)
+	(view-mode)
 	(switch-to-buffer "*dynamic-graph-result*" after)
 	(delete-region (point-min) (point-max))
-	(view-mode-enable)
+	(view-mode)
 	(find-file-read-only errfile)
 	(user-error
-	 "failed %s %s; see *dynamic-graph-source*, *dynamic-graph-result* and  %s for details" name (cdr pars) errfile)))
+	 "Failed %s %s; see *dynamic-graph-source*, *dynamic-graph-result* and  %s for details" name (cdr pars) errfile)))
     (delete-file errfile)))
 
 (defun dynamic-graphs-filter (name &rest pars)
@@ -596,11 +598,11 @@ to see less or more distant nodes.
   (dynamic-graphs-display-graph))
 
 (defcustom dynamic-graphs-filter-string ""
-  "GVPR code to be applied by next dynamic-graphs-apply-filter.
+  "GVPR code to be applied by next `dynamic-graphs-apply-filter'.
 
 May be edited by `customize-variable`.
 
-May be set by dynamic-graphs-pop-filter.
+May be set by `dynamic-graphs-pop-filter'.
 
 Can be reapplied by `dynamic-graphs-reapply-filter`.  This is NOT buffer local by design."
   :group 'dynamic-graphs
@@ -636,11 +638,15 @@ The removed filter is stored to `dynamic-graphs-filter-string` so that it can be
   (dynamic-graphs-display-graph))
 
 (defun dynamic-graphs--make-widget (buffer tag variable &optional type)
+  "Create a widget for local setting of a VARIABLE in the BUFFER.
+
+Prefix it in the current buffer with TAG, and use TYPE for the
+widget; if not set, derive it from the customization type of VARIABLE."
   (widget-create
    (or type (custom-variable-type variable))
    :value (with-current-buffer buffer (symbol-value variable))
    :tag tag
-   :notify (lambda (widget &rest ignore)
+   :notify (lambda (widget &rest _ignore)
 	     (with-current-buffer buffer
 	       (set variable (widget-value widget)))))
   (widget-insert "\n"))
