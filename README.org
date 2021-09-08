@@ -45,11 +45,7 @@ See documentation string for [[help:dynamic-graphs-filters][dynamic-graphs-filte
 * Key bindings
 The graphs are claimed to be dynamic. As of now, it has two aspects:
 - When the underlying function (buffer content, other data source, ...) changes, the image itself changes.
-- The engine, root node, as well as filters can be changed on fly. This can be done either by individual key bindings below, or in an interactive way using dynamic-graphs-customize-locals
-, bound to C. This uses widgets for local customization.
-In addition,
-
-To achieve this
+- The engine, root node, as well as filters can be changed on fly. This can be done either by individual key bindings below, or in an interactive way using dynamic-graphs-customize-locals, bound to C. This uses widgets for local customization.
 
 The image is displayed with a specialized minor mode.  Predefined key bindings on the displayed image in this mode include:
 - e (dynamic-graphs-set-engine) change grahviz engine (dot, circo, ...)
@@ -57,7 +53,7 @@ The image is displayed with a specialized minor mode.  Predefined key bindings o
 - 1-9 (dynamic-graphs-zoom-by-key) set maximum displayed distance from a root node
 - mouse-1 (dynamic-graphs-shift-focus-or-follow-link) shift root node or follow link defined in imap file - that is, in URL attribute of the node.  Link is followed by customizable function, by default `browse-url' - but `org-link-open-from-string' might be more useful. See docstring for details.
 - ! saves current graph in a .gv file.
-- p saves current graph n pdf format.
+- p saves current graph in pdf format.
 - / clears root (also available through C)
 
 Subject to change (even more than the rest of package):
@@ -196,12 +192,16 @@ and more is done via gvpr filter.
 	  (base (file-name-base (buffer-file-name))))
       (save-window-excursion
 	(byte-compile-file (buffer-file-name)))
-      (dynamic-graphs-make-graph-from-list base byte-compile-call-tree (list "call-graph.gvpr")
-					   :params `((prefix . ,base))
-					   :props-fn  (lambda (a) (list (cons 'command (commandp (car a)))))
-					   :name-fn (lambda (a) (symbol-name (car a)))
-					   :links-fn (lambda (a) (mapcar #'symbol-name (caddr a))))))
+      (dynamic-graphs-make-graph-from-list
+       base byte-compile-call-tree (list "filters/call-graph.gvpr")
+       :params `((prefix . ,base))
+       :props-fn  (lambda (a) (list (cons 'command (commandp (car a)))))
+       :name-fn (lambda (a) (symbol-name (car a)))
+       :links-fn (lambda (a) (mapcar #'symbol-name (caddr a))))))
 #+end_src
+
+Example output (after setting root node to :filter and limiting size) is
+[[./images/dynamic-graphs.png]]
 
 * Relation to other packages
 There is a [[https://github.com/ppareit/graphviz-dot-mode][graphviz-dot-mode]] package on Melpa that "helps you to
