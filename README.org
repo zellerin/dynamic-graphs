@@ -117,7 +117,7 @@ interpreted by ~browse-url~ command (or, in general, by current
 You can try it on example.png in the examples directory; clicking to A
 or B should lead you to example web page or this repo on github.
 
-** Call graph
+** Call graph (example)
 Following function can prepare and display clickable call graph of an
 emacs lisp file.
 
@@ -184,6 +184,15 @@ function is factored out:
 				  filters))
 #+end_src
 
+#+begin_src emacs-lisp
+  (defun open-id-as-function-help (ref)
+    (when (= 3 (cl-mismatch ref "id:")))
+    (describe-function (intern (substring ref 3))))
+#+end_src
+
+#+RESULTS:
+: open-id-as-function-help
+
 and more is done via gvpr filter.
 #+begin_src emacs-lisp :display=none :lexical t :results none
   (defun call-graph-ii ()
@@ -193,15 +202,17 @@ and more is done via gvpr filter.
       (save-window-excursion
 	(byte-compile-file (buffer-file-name)))
       (dynamic-graphs-make-graph-from-list
-       base byte-compile-call-tree (list "filters/call-graph.gvpr")
+       base byte-compile-call-tree (list "filters/call-graph.gvpr" 4)
        :params `((prefix . ,base))
        :props-fn  (lambda (a) (list (cons 'command (commandp (car a)))))
        :name-fn (lambda (a) (symbol-name (car a)))
-       :links-fn (lambda (a) (mapcar #'symbol-name (caddr a))))))
+       :links-fn (lambda (a) (mapcar #'symbol-name (caddr a))))
+      (setq dynamic-graphs-follow-link-fn #'open-id-as-function-help)))
 #+end_src
 
-Example output (after setting root node to :filter and limiting size) is
+Example output (after setting root node to :filter (single click) and limiting radius) is
 [[./images/dynamic-graphs.png]]
+Double click displays Emacs help for the functions.
 
 * Relation to other packages
 There is a [[https://github.com/ppareit/graphviz-dot-mode][graphviz-dot-mode]] package on Melpa that "helps you to

@@ -502,7 +502,8 @@ Argument E is the event."
 ;;	(dynamic-graphs-display-graph (file-name-base) (or .alt .title))))
      ((and .href
 	   (not (eql dynamic-graphs-make-graph-fn (default-value 'dynamic-graphs-make-graph-fn)))
-	   (= (event-click-count e) 1) (= 3 (cl-mismatch .href "id:")))
+	   (= (event-click-count e) 1)
+	   (= 3 (cl-mismatch .href "id:")))
       (when (sit-for 0.2 t)
 	;; wait for second click. What is proper variable for timing?
 	(dynamic-graphs-display-graph (file-name-base (buffer-name)) (substring .href 3))))
