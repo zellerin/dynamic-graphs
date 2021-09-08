@@ -122,7 +122,7 @@ I set it as default, I would have to make org mode a dependency."
   :type '(choice
 	  (const :tag "Open as web" browse-url)
 	  (const :tag "Open as org link" org-link-open-from-string)
-	  (const :tag "Just display the link" (lambda (a) (message "~s" a)))
+	  (const :tag "Just display the link" (lambda (a) (message "%s" a)))
 	  function)
   :group 'dynamic-graph)
 
@@ -132,6 +132,8 @@ I set it as default, I would have to make org mode a dependency."
 
 (make-variable-buffer-local 'dynamic-graphs-make-graph-fn)
 (put 'dynamic-graphs-filters 'permanent-local t)
+(put 'dynamic-graphs-follow-link-fn 'permanent-local t)
+
 
 (defvar-local dynamic-graphs-root nil
   "Root node for dijkstra algorithm if set.
@@ -561,6 +563,7 @@ Argument E is the event."
     (define-key km "ds" 'dynamic-graphs-add-filter-string)
     (define-key km "dp" 'dynamic-graphs-pop-filter)
     (define-key km "dd" 'dynamic-graphs-add-predefined-filter)
+    (define-key km "C" 'dynamic-graphs-customize-locals)
     (define-key km "d0" 'dynamic-graphs-clean-filters)
 
     km))
@@ -632,6 +635,40 @@ The removed filter is stored to `dynamic-graphs-filter-string` so that it can be
   (interactive)
   (setq-local dynamic-graphs-filters (default-value 'dynamic-graphs-filters))
   (dynamic-graphs-display-graph))
+
+(defun dynamic-graphs--make-widget (buffer tag variable &optional type)
+  (widget-create
+   (or type (custom-variable-type variable))
+   :value (with-current-buffer buffer (symbol-value variable))
+   :tag tag
+   :notify (lambda (widget &rest ignore)
+	     (with-current-buffer buffer
+	       (set variable (widget-value widget)))))
+  (widget-insert "\n"))
+
+(defun dynamic-graphs-customize-locals ()
+  "Customize local setings for dynamic-graphs."
+  (interactive)
+  (let ((buffer-to-customize (current-buffer)))
+    (switch-to-buffer-other-window "*Dynamic graphs local config*")
+    (kill-all-local-variables)
+    (let ((inhibit-read-only t))
+      (erase-buffer))
+    (remove-overlays)
+
+    (dynamic-graphs--make-widget buffer-to-customize "On double click" 'dynamic-graphs-follow-link-fn)
+    (dynamic-graphs--make-widget buffer-to-customize "Command to display" 'dynamic-graphs-cmd)
+    (dynamic-graphs--make-widget buffer-to-customize "Root node" 'dynamic-graphs-root '(choice (const :tag "None" nil) string))
+    (dynamic-graphs--make-widget buffer-to-customize "Filters used" 'dynamic-graphs-filters)
+    (widget-create 'push-button
+		   :tag "Apply"
+		   :notify (lambda (&rest _ignore)
+			     (save-current-buffer
+			       (pop-to-buffer buffer-to-customize)
+			       (dynamic-graphs-display-graph)))))
+  (use-local-map widget-keymap)
+  (widget-setup))
+
 
 (provide 'dynamic-graphs)
 ;;; dynamic-graphs.el ends here
