@@ -100,6 +100,10 @@ Press 3 to increase radius for displayed nodes and display node A as
 well:
 
 [[./images/f-and-one.png]]
+
+Type C to customize how the graph is displayed interactively:
+[[./images/customize.png]]
+
 ** From gv file/buffer
 See .gv and .gvpr file in examples subdirectory:
 - running ~dynamic-graphs-display-graph-buffer~ in the example.gv buffer displays the graph
