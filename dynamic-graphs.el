@@ -359,6 +359,11 @@ Return the graph as the string (mainly for debugging purposes)."
   (interactive)
   (dynamic-graphs-create-outputs '("pdf")))
 
+(defun dynamic-graphs-save-png ()
+  "Save current image as .png file."
+  (interactive)
+  (dynamic-graphs-create-outputs '("png")))
+
 (defun dynamic-graphs-rebuild-and-display (&optional base-file-name root make-graph-fn filters)
   "Redisplay the graph in the current buffer.
 
