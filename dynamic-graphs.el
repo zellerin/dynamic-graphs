@@ -252,11 +252,19 @@ Throw error if it failed."
        ((and (stringp filter))
 	(dynamic-graphs-filter "gvpr" "-qc"  filter))
        ((integerp filter)
-	(when root
-	  (dynamic-graphs-filter "dijkstra" root)
-	  (dynamic-graphs-filter "gvpr" "-c" "-a" (format "%d.0" filter)
-		"-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
- N[!dist || dist >= maxdist] {delete(root, $)}")))
+	(cond
+         ((consp root) ; multiple roots
+          (dolist (a-root root)
+            (dynamic-graphs-filter "dijkstra" a-root)
+            (dynamic-graphs-filter "gvpr" "-c" "-a" (format "%d.0" filter)
+                     "-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
+ N[dist && dist < maxdist] {keepme=\"y\"}"))
+          (dynamic-graphs-filter "gvpr" "-c" "-q" "N[!keepme==\"y\"] {delete(root, $)}"))
+         (root
+           (dynamic-graphs-filter "dijkstra" root)
+           (dynamic-graphs-filter "gvpr" "-c" "-a" (format "%d.0" filter)
+                    "-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
+ N[!dist || dist >= maxdist] {delete(root, $)}"))))
        ((eq filter 'remove-cycles)
 	(dynamic-graphs-filter "acyclic")
 	(dynamic-graphs-filter "tred"))
