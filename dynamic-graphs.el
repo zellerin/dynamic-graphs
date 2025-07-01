@@ -1,10 +1,10 @@
 ;;; dynamic-graphs.el --- Manipulation with graphviz graphs  -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2020, 2021  Tomas Zellerin
+;; Copyright (C) 2020, 2021, 2025  Tomas Zellerin
 ;;
 ;; Author: Tomas Zellerin <tomas@zellerin.cz>
 ;; Keywords: tools
-;; Package-Version: 1.0
+;; Package-Version: 1.1
 ;; URL: https://github.com/zellerin/dynamic-graphs
 ;; Package-Requires: ((emacs "26.1"))
 ;;
@@ -34,13 +34,13 @@
 ;; The filters can apply both enhancing operations (add colors, ...)
 ;; and more complicated operations coded in gvpr.  As a special case
 ;; there is a filter that removes all nodes that are more distant than
-;; a parameter from a root node.
+;; a parameter from a root node(s).
 ;;
 ;; The image is displayed with a specialized minor mode.
 ;; Predefined key bindings on the displayed image in this mode include:
 ;; - e (dynamic-graphs-set-engine) change grahviz engine (dot, circo, ...)
 ;; - c (dynamic-graphs-remove-cycles) change whether cycles are removed
-;; - 1-9 (dynamic-graphs-zoom-by-key) set maximum displayed distance from a root node
+;; - 1-9 (dynamic-graphs-zoom-by-key) set maximum displayed distance from a root node(s)
 ;; - mouse-1 (dynamic-graphs-shift-focus-or-follow-link) shift root
 ;;   node or follow link defined in imap file - that is, in URL
 ;;   attribute of the node.  Link is followed by customizable
@@ -83,7 +83,7 @@ The default value somewhat arbitrarily sets kept distance to 3; this
 applies only when a root is set."
   :group 'dynamic-graphs
   :type '(repeat
-	  (choice (integer :tag "Maximum distance from root to keep")
+	  (choice (integer :tag "Maximum distance from root(s) to keep")
 		  (string :tag "gvpr code to apply")
 		  (file :must-match t :tag "gvpr source file to apply")
 		  (const :tag "Remove cycles in graph" remove-cycles)
@@ -138,10 +138,13 @@ I set it as default, I would have to make org mode a dependency."
 
 
 (defvar-local dynamic-graphs-root nil
-  "Root node for dijkstra algorithm if set.
+  "Root node(s) for dijkstra algorithm if set.
 
-The variable is set buffer-local in the image buffers so that it can
-be changed dynamically.")
+The variable is set buffer-local in the image buffers so that it can be
+changed dynamically.
+
+This can be either a string (one root) or a list (multiple roots), or
+nil (no root)")
 
 (defcustom dynamic-graphs-transformations
   '((boxize . "N {shape=\"box\"}")
@@ -226,7 +229,7 @@ DELETE and BUFFER are passed to CALL-PROCESS-REGION."
 	(view-mode)
 	(find-file-read-only errfile)
 	(user-error
-	 "Failed %s %s; see *dynamic-graph-source*, *dynamic-graph-result* and  %s for details" name (cdr pars) errfile)))
+	 "Failed %s %s; see *dynamic-graph-source*, *dynamic-graph-result* and  %s for details" name pars errfile)))
     (delete-file errfile)))
 
 (defun dynamic-graphs-filter (name &rest pars)
@@ -419,8 +422,10 @@ interactively."
 
 ;;; Mouse handlers (expect imap/cmapx file in place with proper structure)
 (defun dynamic-graphs-get-rects-sexp (sexp x y)
-  "Get reference related to the screen point X Y from the SEXP that describes node links."
-  ;; SEXP is  (map ((id . XXX)) (area ((...)))...
+  "Get reference related to the screen point X Y from node links.
+
+The SEXP describes node links; the format is
+    `(map ((id . XXX)) (area ((...)))...`"
   (with-temp-buffer
     (seq-some
      (lambda (item)
@@ -583,8 +588,9 @@ Argument E is the event."
 Allows shift focus to a different mode, and zoom in or zoom out
 to see less or more distant nodes.
 
-\\{dynamic-graphs-keymap}" nil "(dyn)" dynamic-graphs-keymap
-(setq-local revert-buffer-function (lambda (_a _b)
+\\{dynamic-graphs-keymap}"
+  :lighter "(dyn)"
+  dynamic-graphs-keymap (setq-local revert-buffer-function (lambda (_a _b)
 				     (dynamic-graphs-display-graph))))
 
 (defun dynamic-graphs-help ()
@@ -613,14 +619,15 @@ May be edited by `customize-variable`.
 
 May be set by `dynamic-graphs-pop-filter'.
 
-Can be reapplied by `dynamic-graphs-reapply-filter`.  This is NOT buffer local by design."
+Can be reapplied by `dynamic-graphs-reapply-filter`.  This is NOT buffer local."
   :group 'dynamic-graphs
   :type 'string)
 
 (defun dynamic-graphs-pop-filter ()
   "Remove most recent filter from current buffer list of filters.
 
-The removed filter is stored to `dynamic-graphs-filter-string` so that it can be edited or reapplied."
+The removed filter is stored to `dynamic-graphs-filter-string` so that it can be
+edited or reapplied."
   (interactive)
   (setq dynamic-graphs-filter-string   (pop dynamic-graphs-filters))
   (dynamic-graphs-display-graph)
@@ -633,7 +640,10 @@ The removed filter is stored to `dynamic-graphs-filter-string` so that it can be
   (dynamic-graphs-display-graph))
 
 (defun dynamic-graphs-add-predefined-filter (filter)
-  "Add a predefined (in `dynamic-graphs-transformations`) filter `FILTER` to the current image."
+  "Add a predefined filter `FILTER` to the current image.
+
+The predefined filtered are stored in `dynamic-graphs-transformations`."
+
   (interactive (list (intern
 		      (completing-read "Add filter: " (mapcar #'car dynamic-graphs-transformations)
 				       nil t))))
