@@ -256,18 +256,23 @@ Throw error if it failed."
 	(dynamic-graphs-filter "gvpr" "-qc"  filter))
        ((integerp filter)
 	(cond
-         ((consp root) ; multiple roots
+         ((consp root)                  ; multiple roots
           (dolist (a-root root)
             (dynamic-graphs-filter "dijkstra" a-root)
+            ;; Set graphviz attribute keepme for those close to the node,
+            ;; and root for the node (this can be used to color roots)
             (dynamic-graphs-filter "gvpr" "-c" "-a" (format "%d.0" filter)
                      "-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
- N[dist && dist < maxdist] {keepme=\"y\"}"))
+ N[dist && dist < maxdist] {keepme=\"y\"}
+ N[dist<0.5]{isroot=\"y\"}"))
+          ;; Remove all nodes not tagged as keep
           (dynamic-graphs-filter "gvpr" "-c" "-q" "N[!keepme==\"y\"] {delete(root, $)}"))
-         (root
-           (dynamic-graphs-filter "dijkstra" root)
-           (dynamic-graphs-filter "gvpr" "-c" "-a" (format "%d.0" filter)
-                    "-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
- N[!dist || dist >= maxdist] {delete(root, $)}"))))
+         (root ;; single root
+          (dynamic-graphs-filter "dijkstra" root)
+          (dynamic-graphs-filter "gvpr" "-c" "-a" (format "%d.0" filter)
+                   "-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
+ N[!dist || dist >= maxdist] {delete(root, $)}
+ N[dist<0.5]{isroot=\"y\"}"))))
        ((eq filter 'remove-cycles)
 	(dynamic-graphs-filter "acyclic")
 	(dynamic-graphs-filter "tred"))
@@ -519,7 +524,12 @@ Argument E is the event."
 	   (= 3 (cl-mismatch .href "id:")))
       (when (sit-for 0.2 t)
 	;; wait for second click. What is proper variable for timing?
-	(dynamic-graphs-display-graph (file-name-base (buffer-name)) (substring .href 3))))
+        (let ((clicked-id (substring .href 3)))
+          (cond
+           ((stringp dynamic-graphs-root) (dynamic-graphs-display-graph (file-name-base (buffer-name)) clicked-id))
+           ((member clicked-id dynamic-graphs-root)
+            (dynamic-graphs-display-graph (file-name-base (buffer-name)) (remove clicked-id dynamic-graphs-root)))
+           (t (dynamic-graphs-display-graph (file-name-base (buffer-name)) (cons clicked-id dynamic-graphs-root)))))))
      (.href (funcall dynamic-graphs-follow-link-fn .href)))))
 
 ;;; Key handlers
@@ -682,7 +692,8 @@ widget; if not set, derive it from the customization type of VARIABLE."
 
     (dynamic-graphs--make-widget buffer-to-customize "On double click" 'dynamic-graphs-follow-link-fn)
     (dynamic-graphs--make-widget buffer-to-customize "Command to display" 'dynamic-graphs-cmd)
-    (dynamic-graphs--make-widget buffer-to-customize "Root node" 'dynamic-graphs-root '(choice (const :tag "None" nil) string))
+    (dynamic-graphs--make-widget buffer-to-customize "Root node" 'dynamic-graphs-root
+                   '(choice (const :tag "None" nil) string (repeat string)))
     (dynamic-graphs--make-widget buffer-to-customize "Filters used" 'dynamic-graphs-filters)
     (widget-create 'push-button
 		   :tag "Apply"
