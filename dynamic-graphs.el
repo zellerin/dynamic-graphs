@@ -255,6 +255,8 @@ Throw error if it failed."
        ((and (stringp filter))
 	(dynamic-graphs-filter "gvpr" "-qc"  filter))
        ((integerp filter)
+        (unless (or (null root) (consp root))
+          (setf root (list root)))
 	(cond
          ((consp root)                  ; multiple roots
           (dolist (a-root root)
@@ -268,6 +270,7 @@ Throw error if it failed."
           ;; Remove all nodes not tagged as keep
           (dynamic-graphs-filter "gvpr" "-c" "-q" "N[!keepme==\"y\"] {delete(root, $)}"))
          (root ;; single root
+          (user-error "This cant happen")
           (dynamic-graphs-filter "dijkstra" root)
           (dynamic-graphs-filter "gvpr" "-c" "-a" (format "%d.0" filter)
                    "-q" "BEGIN{float maxdist; sscanf(ARGV[0], \"%f\", &maxdist)}
@@ -530,7 +533,7 @@ Argument E is the event."
            ((member clicked-id dynamic-graphs-root)
             (dynamic-graphs-display-graph (file-name-base (buffer-name)) (remove clicked-id dynamic-graphs-root)))
            (t (dynamic-graphs-display-graph (file-name-base (buffer-name)) (cons clicked-id dynamic-graphs-root)))))))
-     (.href (funcall dynamic-graphs-follow-link-fn .href)))))
+     (.href (funcall dynamic-graphs-follow-link-fn (concat "[[" .href "]]"))))))
 
 ;;; Key handlers
 (defun dynamic-graphs-zoom-by-key (&optional keys)
@@ -600,8 +603,9 @@ to see less or more distant nodes.
 
 \\{dynamic-graphs-keymap}"
   :lighter "(dyn)"
-  dynamic-graphs-keymap (setq-local revert-buffer-function (lambda (_a _b)
-				     (dynamic-graphs-display-graph))))
+  :keymap dynamic-graphs-keymap
+  (setq-local revert-buffer-function (lambda (_a _b)
+				       (dynamic-graphs-display-graph))))
 
 (defun dynamic-graphs-help ()
   "Experimental: show alt texts or href on nodes."
