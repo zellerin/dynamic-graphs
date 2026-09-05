@@ -1,10 +1,10 @@
 ;;; dynamic-graphs.el --- Manipulation with graphviz graphs  -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2020, 2021, 2025  Tomas Zellerin
+;; Copyright (C) 2020, 2021, 2025, 2026  Tomas Zellerin
 ;;
 ;; Author: Tomas Zellerin <tomas@zellerin.cz>
 ;; Keywords: tools
-;; Package-Version: 1.1
+;; Package-Version: 20260905
 ;; URL: https://github.com/zellerin/dynamic-graphs
 ;; Package-Requires: ((emacs "26.1"))
 ;;
